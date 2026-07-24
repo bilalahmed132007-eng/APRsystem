@@ -1,0 +1,85 @@
+﻿@model IEnumerable<APRsystem.Models.Appraisal>
+
+@{
+    ViewData["Title"] = "Performance Appraisals";
+
+    string BandClass(string? band) => band switch
+    {
+        "Outstanding" => "badge-active",
+        "Above Expectations" => "badge-active",
+        "Meets Expectations" => "badge bg-info",
+        "Below Expectations" => "badge bg-warning text-dark",
+        "Needs Improvement" => "badge-inactive",
+        _ => "badge bg-secondary"
+    };
+}
+
+<div class="container-fluid py-3">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Performance Appraisals</h2>
+            <small class="text-muted">All appraisal records you have access to</small>
+        </div>
+    </div>
+
+    <div class="dash-card p-0">
+        <table class="table app-table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Supervisor</th>
+                    <th>Period</th>
+                    <th>Grand Score</th>
+                    <th>%</th>
+                    <th>Ranking</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var appraisal in Model)
+                {
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="row-avatar">
+                                    @appraisal.Employee.FullName.Substring(0, 1).ToUpper()
+                                </span>
+                                @appraisal.Employee.FullName
+                            </div>
+                        </td>
+                        <td>@appraisal.Supervisor.FullName</td>
+                        <td>
+                            @appraisal.FromDate.ToString("dd MMM yyyy") — @appraisal.ToDate.ToString("dd MMM yyyy")
+                        </td>
+                        <td>@appraisal.GrandTotalScore / @appraisal.GrandMaxScore</td>
+                        <td>@appraisal.Percentage%</td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(appraisal.RankingBand))
+                            {
+                                <span class="@BandClass(appraisal.RankingBand)">@appraisal.RankingBand</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Not scored</span>
+                            }
+                        </td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-view">View</a>
+                            @if (appraisal.GrandMaxScore == 0)
+                            {
+                                <a asp-action="Score" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-edit">Score</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (!Model.Any())
+        {
+            <p class="text-muted p-4 mb-0">No appraisals found.</p>
+        }
+    </div>
+
+</div>

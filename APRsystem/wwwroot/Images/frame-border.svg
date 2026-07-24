@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="50%" stop-color="#f9e79f"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <linearGradient id="navy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b2a5e"/>
+      <stop offset="100%" stop-color="#0d1a3d"/>
+    </linearGradient>
+  </defs>
+
+  <!-- outer navy rounded frame -->
+  <rect x="0" y="0" width="1000" height="700" rx="24" fill="none" stroke="url(#navy)" stroke-width="40"/>
+
+  <!-- gold inner line -->
+  <rect x="35" y="35" width="930" height="630" fill="none" stroke="url(#gold)" stroke-width="3"/>
+
+  <!-- top-left ribbon swirl -->
+  <path d="M0,140 C60,100 100,60 140,0 L0,0 Z" fill="url(#navy)" opacity="0.9"/>
+  <path d="M0,170 C80,120 120,70 170,0" fill="none" stroke="url(#gold)" stroke-width="4"/>
+
+  <!-- bottom-right ribbon swirl -->
+  <path d="M1000,560 C940,600 900,640 860,700 L1000,700 Z" fill="url(#navy)" opacity="0.9"/>
+  <path d="M1000,530 C920,580 880,630 830,700" fill="none" stroke="url(#gold)" stroke-width="4"/>
+</svg>

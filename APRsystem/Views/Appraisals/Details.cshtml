@@ -1,0 +1,131 @@
+﻿@model APRsystem.Models.Appraisal
+
+@{
+    ViewData["Title"] = "Appraisal Details";
+
+    string bandColor = Model.RankingBand switch
+    {
+        "Outstanding" => "bg-success",
+        "Above Expectations" => "bg-primary",
+        "Meets Expectations" => "bg-info",
+        "Below Expectations" => "bg-warning",
+        _ => "bg-danger"
+    };
+}
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Appraisal — @Model.Employee.FullName</h2>
+            <small class="text-muted">
+                @Model.FromDate.ToString("dd MMM yyyy") — @Model.ToDate.ToString("dd MMM yyyy")
+                &nbsp;•&nbsp; Supervisor: @Model.Supervisor.FullName
+            </small>
+        </div>
+
+        <a asp-controller="Employees" asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-secondary">
+            ← Back to Employee
+        </a>
+    </div>
+
+    <!-- GENERAL KPIs -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark">
+            <h5 class="mb-0">General KPIs</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Weight</th>
+                        <th>Rating</th>
+                        <th>Score</th>
+                        <th>Max</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var kpi in Model.AppraisalKPIs.Where(k => k.Section == APRsystem.Models.KPISection.General))
+                    {
+                        <tr>
+                            <td>
+                                @kpi.Title
+                                <br />
+                                <small class="text-muted">@kpi.Description</small>
+                            </td>
+                            <td>@kpi.Weight</td>
+                            <td>@kpi.Rating / 4</td>
+                            <td>@kpi.Score</td>
+                            <td>@(kpi.Weight * 4)</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="3">Total</td>
+                        <td>@Model.GeneralTotalScore</td>
+                        <td>@Model.GeneralMaxScore</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <p><strong>Comment:</strong> @(string.IsNullOrEmpty(Model.GeneralComment) ? "—" : Model.GeneralComment)</p>
+        </div>
+    </div>
+
+    <!-- SPECIFIC KPIs -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark">
+            <h5 class="mb-0">Posting-Specific KPIs</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Weight</th>
+                        <th>Rating</th>
+                        <th>Score</th>
+                        <th>Max</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var kpi in Model.AppraisalKPIs.Where(k => k.Section == APRsystem.Models.KPISection.Specific))
+                    {
+                        <tr>
+                            <td>
+                                @kpi.Title
+                                <br />
+                                <small class="text-muted">@kpi.Description</small>
+                            </td>
+                            <td>@kpi.Weight</td>
+                            <td>@kpi.Rating / 4</td>
+                            <td>@kpi.Score</td>
+                            <td>@(kpi.Weight * 4)</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="3">Total</td>
+                        <td>@Model.SpecificTotalScore</td>
+                        <td>@Model.SpecificMaxScore</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <p><strong>Comment:</strong> @(string.IsNullOrEmpty(Model.SpecificComment) ? "—" : Model.SpecificComment)</p>
+        </div>
+    </div>
+
+    <!-- GRAND TOTAL -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body text-center">
+            <h4>Grand Total: @Model.GrandTotalScore / @Model.GrandMaxScore</h4>
+            <h4>Percentage: @Model.Percentage%</h4>
+            <span class="badge @bandColor fs-6 px-3 py-2">@Model.RankingBand</span>
+        </div>
+    </div>
+
+</div>

@@ -1,0 +1,62 @@
+﻿@model IEnumerable<APRsystem.Models.Posting>
+
+@{
+    ViewData["Title"] = "Posting History";
+}
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Posting History</h2>
+            <small class="text-muted">@ViewBag.EmployeeName</small>
+        </div>
+
+        <a asp-controller="Employees" asp-action="Details" asp-route-id="@ViewBag.EmployeeId" class="btn btn-outline-secondary">
+            ← Back to Employee
+        </a>
+    </div>
+
+    <table class="table table-dark table-bordered table-hover">
+        <thead>
+            <tr>
+                <th>Department</th>
+                <th>Designation</th>
+                <th>Supervisor</th>
+                <th>Location</th>
+                <th>From Date</th>
+                <th>To Date</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var posting in Model)
+            {
+                <tr>
+                    <td>@(posting.Department?.Name ?? "—")</td>
+                    <td>@(posting.Designation?.Value ?? "—")</td>
+                    <td>@(posting.Supervisor?.FullName ?? "—")</td>
+                    <td>@(posting.Location?.Name ?? "—")</td>
+                    <td>@posting.FromDate.ToString("dd MMM yyyy")</td>
+                    <td>@(posting.ToDate.HasValue ? posting.ToDate.Value.ToString("dd MMM yyyy") : "—")</td>
+                    <td>
+                        @if (posting.IsActive)
+                        {
+                            <span class="badge bg-success">Current</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Past</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted">No posting history found for this employee.</p>
+    }
+
+</div>

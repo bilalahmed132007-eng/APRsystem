@@ -1,0 +1,51 @@
+﻿@model APRsystem.Models.Posting
+
+@{
+    ViewData["Title"] = "Delete Posting";
+}
+
+<div class="container py-4">
+
+    <h2 class="fw-bold mb-1">Delete Posting</h2>
+    <p class="text-muted">Are you sure you want to delete this posting record?</p>
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body p-4">
+
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Employee</dt>
+                <dd class="col-sm-9">@(Model.Employee?.FullName ?? "—")</dd>
+
+                <dt class="col-sm-3">Department</dt>
+                <dd class="col-sm-9">@(Model.Department?.Name ?? "—")</dd>
+
+                <dt class="col-sm-3">Designation</dt>
+                <dd class="col-sm-9">@(Model.Designation?.Value ?? "—")</dd>
+
+                <dt class="col-sm-3">Supervisor</dt>
+                <dd class="col-sm-9">@(Model.Supervisor?.FullName ?? "—")</dd>
+
+                <dt class="col-sm-3">Location</dt>
+                <dd class="col-sm-9">@(Model.Location?.Name ?? "—")</dd>
+
+                <dt class="col-sm-3">From Date</dt>
+                <dd class="col-sm-9">@Model.FromDate.ToString("dd MMM yyyy")</dd>
+
+                <dt class="col-sm-3">To Date</dt>
+                <dd class="col-sm-9">@(Model.ToDate.HasValue ? Model.ToDate.Value.ToString("dd MMM yyyy") : "—")</dd>
+            </dl>
+
+        </div>
+    </div>
+
+    <div class="alert alert-warning">
+        Deleting a posting removes it from this employee's history permanently. Consider whether ending it (setting a To Date) is more appropriate than deleting it.
+    </div>
+
+    <form asp-action="Delete">
+        <input type="hidden" asp-for="Id" />
+        <button type="submit" class="btn btn-danger px-4">Delete</button>
+        <a asp-action="Index" class="btn btn-outline-secondary px-4">Cancel</a>
+    </form>
+
+</div>

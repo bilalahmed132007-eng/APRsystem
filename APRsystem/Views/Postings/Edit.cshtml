@@ -1,0 +1,115 @@
+﻿@model APRsystem.Models.Posting
+
+@{
+    ViewData["Title"] = "Edit Posting";
+}
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Edit Posting</h2>
+            <small class="text-muted">@Model.Employee?.FullName</small>
+        </div>
+
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            ← Back to Postings
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+
+            <form asp-action="Edit" method="post">
+
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                <input type="hidden" asp-for="Id" />
+                <input type="hidden" asp-for="EmployeeId" />
+
+                <div class="row">
+
+                    <div class="col-md-6">
+
+                        <div class="mb-3">
+                            <label class="form-label">Contract</label>
+                            <select asp-for="ContractId" class="form-select" asp-items="ViewBag.ContractId">
+                                <option value="">Select Contract</option>
+                            </select>
+                            <span asp-validation-for="ContractId" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Department</label>
+                            <select asp-for="DepartmentId" class="form-select" asp-items="ViewBag.DepartmentId">
+                                <option value="">Select Department</option>
+                            </select>
+                            <span asp-validation-for="DepartmentId" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Designation</label>
+                            <select asp-for="DesignationId" class="form-select" asp-items="ViewBag.DesignationId">
+                                <option value="">Select Designation</option>
+                            </select>
+                            <span asp-validation-for="DesignationId" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Supervisor</label>
+                            <select asp-for="SupervisorId" class="form-select" asp-items="ViewBag.SupervisorId">
+                                <option value="">No Supervisor</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="mb-3">
+                            <label class="form-label">Location</label>
+                            <select asp-for="LocationId" class="form-select" asp-items="ViewBag.LocationId">
+                                <option value="">Select Location</option>
+                            </select>
+                            <span asp-validation-for="LocationId" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Salary" class="form-label"></label>
+                            <input asp-for="Salary" type="number" step="0.01" class="form-control" />
+                            <span asp-validation-for="Salary" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="FromDate" class="form-label"></label>
+                            <input asp-for="FromDate" type="date" class="form-control" />
+                            <span asp-validation-for="FromDate" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="ToDate" class="form-label"></label>
+                            <input asp-for="ToDate" type="date" class="form-control" />
+                            <small class="text-muted d-block mt-1">
+                                Leave blank if this is still the employee's current posting.
+                            </small>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="mt-4 d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary px-5">Save Changes</button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

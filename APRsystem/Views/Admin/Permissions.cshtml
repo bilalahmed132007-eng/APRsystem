@@ -1,0 +1,42 @@
+﻿@model APRsystem.ViewModels.PermissionsManagementViewModel
+
+@{
+    ViewData["Title"] = "Manage Permissions";
+}
+
+<h2>Manage Permissions</h2>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+
+@foreach (var role in Model.Roles)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <strong>@role.RoleName</strong>
+        </div>
+        <div class="card-body">
+            <form asp-action="UpdateRolePermissions" method="post">
+                <input type="hidden" name="roleId" value="@role.RoleId" />
+
+                <div class="row">
+                    @foreach (var perm in role.Permissions)
+                    {
+                        <div class="col-md-4 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selectedPermissions" value="@perm.PermissionValue" id="perm_@(role.RoleId)_@(perm.PermissionValue)" checked="@perm.IsGranted" />
+                                <label class="form-check-label" for="perm_@(role.RoleId)_@(perm.PermissionValue)">
+                                    @perm.PermissionValue
+                                </label>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <button type="submit" class="btn btn-primary mt-3">Save @role.RoleName Permissions</button>
+            </form>
+        </div>
+    </div>
+}

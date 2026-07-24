@@ -1,0 +1,129 @@
+﻿@model APRsystem.ViewModels.AuditLogFilterViewModel
+
+@{
+    ViewData["Title"] = "Audit Logs";
+}
+
+<h1>Audit Logs</h1>
+<div class="alert alert-warning">
+    <strong>DEBUG:</strong> @ViewBag.DebugConnectionString <br />
+    Raw count (no filters): @ViewBag.DebugRawCount
+</div>
+<div class="alert alert-info">
+    <strong>FILTER STATE:</strong> @ViewBag.DebugFilterState
+</div>
+<form asp-action="Index" method="get" class="row g-3 mb-4">
+    <div class="col-md-3">
+        <label class="form-label">User</label>
+        <input type="text" name="UserName" value="@Model.UserName" class="form-control" placeholder="Search by user name" />
+    </div>
+
+    <div class="col-md-2">
+        <label class="form-label">Action</label>
+        <select asp-for="Action" asp-items="Model.ActionOptions" class="form-select">
+            <option value="">-- All --</option>
+        </select>
+    </div>
+
+    <div class="col-md-2">
+        <label class="form-label">Entity</label>
+        <select asp-for="EntityName" asp-items="Model.EntityOptions" class="form-select">
+            <option value="">-- All --</option>
+        </select>
+    </div>
+
+    <div class="col-md-2">
+        <label class="form-label">From</label>
+        <input type="date" name="FromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" class="form-control" />
+    </div>
+
+    <div class="col-md-2">
+        <label class="form-label">To</label>
+        <input type="date" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" class="form-control" />
+    </div>
+
+    <div class="col-md-1 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">Filter</button>
+    </div>
+</form>
+
+<p class="text-muted">@Model.TotalCount record(s) found.</p>
+
+<style>
+    .audit-table {
+        color: #e0e0e0;
+    }
+    .audit-table thead th {
+        color: #ffffff;
+        border-bottom-color: rgba(255, 255, 255, 0.2);
+    }
+    .audit-table > tbody > tr {
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    .audit-table.table-striped > tbody > tr:nth-of-type(odd) > * {
+        background-color: rgba(255, 255, 255, 0.04);
+        color: #e0e0e0;
+    }
+    .audit-table td, .audit-table th {
+        vertical-align: middle;
+    }
+</style>
+
+<table class="table table-striped table-sm audit-table">
+    <thead>
+        <tr>
+            <th>Date/Time</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Entity</th>
+            <th>Record ID</th>
+            <th>Changed Fields</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var log in Model.Results)
+        {
+            <tr>
+                <td>@log.Timestamp.ToLocalTime().ToString("yyyy-MM-dd hh:mm tt")</td>
+                <td>@(log.UserName ?? "System")</td>
+                <td>
+                    <span class="badge bg-@(log.Action switch
+                          {
+                              "Created" => "success",
+                              "Updated" => "warning",
+                              "Deleted" => "danger",
+                              _ => "secondary"
+                          })">@log.Action</span>
+                </td>
+                <td>@log.EntityName</td>
+                <td>@log.RecordId</td>
+                <td>@log.ChangedColumns</td>
+                <td>
+                    <a asp-action="Details" asp-route-id="@log.Id" class="btn btn-sm btn-outline-secondary">View</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model.TotalPages > 1)
+{
+    <nav>
+        <ul class="pagination">
+            @for (int p = 1; p <= Model.TotalPages; p++)
+            {
+                <li class="page-item @(p == Model.Page ? "active" : "")">
+                    <a class="page-link"
+                       asp-action="Index"
+                       asp-route-Page="@p"
+                       asp-route-UserName="@Model.UserName"
+                       asp-route-Action="@Model.Action"
+                       asp-route-EntityName="@Model.EntityName"
+                       asp-route-FromDate="@Model.FromDate?.ToString("yyyy-MM-dd")"
+                       asp-route-ToDate="@Model.ToDate?.ToString("yyyy-MM-dd")">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+} 

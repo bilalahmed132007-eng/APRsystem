@@ -1,0 +1,250 @@
+﻿@model APRsystem.ViewModels.PostingDetailsViewModel
+
+@{
+    ViewData["Title"] = "Posting Details";
+}
+@{
+    var posting = Model.Posting;
+}
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Posting Details</h2>
+            <small class="text-muted">@posting.Employee?.FullName</small>
+        </div>
+
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            ← Back to Postings
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 kpi-management-card">
+        <div class="container-fluid px-5 py-3">
+
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Employee</dt>
+                <dd class="col-sm-9">@(posting.Employee?.FullName ?? "—")</dd>
+
+                <dt class="col-sm-3">Contract</dt>
+                <dd class="col-sm-9">@(posting.Contract?.ContractNumber ?? "—")</dd>
+
+                <dt class="col-sm-3">Department</dt>
+                <dd class="col-sm-9">@(posting.Department?.Name ?? "—")</dd>
+
+                <dt class="col-sm-3">Designation</dt>
+                <dd class="col-sm-9">@(posting.Designation?.Value ?? "—")</dd>
+
+                <dt class="col-sm-3">Supervisor</dt>
+                <dd class="col-sm-9">@(posting.Supervisor?.FullName ?? "—")</dd>
+
+                <dt class="col-sm-3">Location</dt>
+                <dd class="col-sm-9">@(posting.Location?.Name ?? "—")</dd>
+
+                <dt class="col-sm-3">Salary</dt>
+                <dd class="col-sm-9">@posting.Salary.ToString("N0")</dd>
+
+                <dt class="col-sm-3">From Date</dt>
+                <dd class="col-sm-9">@posting.FromDate.ToString("dd MMM yyyy")</dd>
+
+                <dt class="col-sm-3">To Date</dt>
+                <dd class="col-sm-9">@(posting.ToDate.HasValue ? posting.ToDate.Value.ToString("dd MMM yyyy") : "—")</dd>
+
+                <dt class="col-sm-3">Status</dt>
+                <dd class="col-sm-9">
+                    @if (posting.IsActive)
+                    {
+                        <span class="badge bg-success">Current</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Ended</span>
+                    }
+                </dd>
+            </dl>
+
+        </div>
+    </div>
+
+    <div class="mt-3">
+        @if (User.IsInRole("Admin") || User.IsInRole("HR"))
+        {
+            <a asp-action="Edit" asp-route-id="@posting.Id" class="btn btn-warning px-4">Edit</a>
+        }
+    </div>
+    <hr class="my-5" />
+
+    <div class="card shadow-sm border-0">
+
+        <div class="kpi-header d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-1">
+                    <i class="bi bi-bullseye me-2 text-primary"></i>
+                    KPI Management
+                </h4>
+
+                <small class="text-muted">
+                    General KPIs are inherited automatically. Posting-specific KPIs can be customized.
+                </small>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center mb-4">
+            <i class="bi bi-stars text-warning fs-4 me-2"></i>
+
+            <div>
+                <h5 class="mb-0">
+                    General KPIs
+                </h5>
+
+                <small class="text-muted">
+                    Automatically included in every employee appraisal.
+                </small>
+            </div>
+        </div>
+
+        @if (Model.GeneralKPIs.Any())
+        {
+            <div class="row">
+
+                @foreach (var kpi in Model.GeneralKPIs)
+                {
+                    <div class="col-lg-4 col-md-6 mb-3">
+
+                        <div class="kpi-card">
+
+                            <div class="d-flex align-items-center mb-2">
+
+                                <div class="kpi-icon">
+                                    <i class="bi bi-check2-circle"></i>
+                                </div>
+
+                                <h6 class="mb-0 ms-3 fw-bold">
+                                    @kpi.Title
+                                </h6>
+
+                            </div>
+
+                            <p class="text-muted small mb-0">
+                                @kpi.Description
+                            </p>
+
+                        </div>
+
+                    </div>
+                }
+
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">
+                No General KPIs have been created yet.
+            </p>
+        }
+
+        <hr />
+
+            <hr />
+
+            <div class="d-flex justify-content-between align-items-center">
+
+                <h5 class="mb-0">
+                    Posting-Specific KPIs
+                </h5>
+
+                <a asp-controller="PostingKPIs"
+                   asp-action="Create"
+                   asp-route-postingId="@Model.Posting.Id"
+                   class="btn btn-primary">
+                    + Add KPI
+                </a>
+
+            </div>
+
+            <div class="mt-3">
+
+                @if (Model.AssignedKPIs.Any())
+                {
+                    <table class="table table-bordered">
+
+                        <thead>
+
+                        <tr>
+
+                            <th>KPI Title</th>
+
+                            <th>Weight</th>
+
+                            <th>Status</th>
+
+                            <th width="180">Actions</th>
+
+                        </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                        @foreach (var item in Model.AssignedKPIs)
+                        {
+                            <tr>
+
+                                <td>
+                                    @item.Title
+                                    <br />
+                                    <small class="text-muted">@item.Description</small>
+                                </td>
+
+                                <td>@item.Weight</td>
+
+                                <td>
+                                    @if (item.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    }
+                                </td>
+
+                                <td>
+
+                                    <a asp-controller="PostingKPIs"
+                                       asp-action="Edit"
+                                       asp-route-id="@item.Id"
+                                       class="btn btn-sm btn-warning">
+                                        Edit
+                                    </a>
+
+                                    <a asp-controller="PostingKPIs"
+                                       asp-action="Delete"
+                                       asp-route-id="@item.Id"
+                                       class="btn btn-sm btn-danger">
+                                        Delete
+                                    </a>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                        </tbody>
+
+                    </table>
+                }
+                else
+                {
+                    <p class="text-muted">
+                        No Posting-Specific KPIs assigned.
+                    </p>
+                }
+
+            </div>
+
+        </div>
+
+    </div>
+
+

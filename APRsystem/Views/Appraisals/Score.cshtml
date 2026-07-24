@@ -1,0 +1,110 @@
+﻿@model APRsystem.ViewModels.AppraisalScoreViewModel
+
+@{
+    ViewData["Title"] = "Score Appraisal";
+}
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Appraisal for @Model.EmployeeName</h2>
+            <small class="text-muted">
+                @Model.FromDate.ToString("dd MMM yyyy") — @Model.ToDate.ToString("dd MMM yyyy")
+            </small>
+        </div>
+    </div>
+
+    <form asp-action="Score" method="post">
+
+        <input type="hidden" asp-for="AppraisalId" />
+
+        <!-- GENERAL KPIs -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0">General KPIs</h5>
+            </div>
+            <div class="card-body">
+
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Weight</th>
+                            <th width="150">Rating (0-4)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.GeneralKPIs.Count; i++)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@Model.GeneralKPIs[i].Title</strong>
+                                    <br />
+                                    <small class="text-muted">@Model.GeneralKPIs[i].Description</small>
+                                    <input type="hidden" asp-for="GeneralKPIs[i].Id" />
+                                </td>
+                                <td>@Model.GeneralKPIs[i].Weight</td>
+                                <td>
+                                    <input asp-for="GeneralKPIs[i].Rating" type="number" min="0" max="4" class="form-control" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="mb-3">
+                    <label asp-for="GeneralComment" class="form-label">Appraiser's Comment (General)</label>
+                    <textarea asp-for="GeneralComment" class="form-control" rows="3"></textarea>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SPECIFIC KPIs -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0">Posting-Specific KPIs</h5>
+            </div>
+            <div class="card-body">
+
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Weight</th>
+                            <th width="150">Rating (0-4)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.SpecificKPIs.Count; i++)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@Model.SpecificKPIs[i].Title</strong>
+                                    <br />
+                                    <small class="text-muted">@Model.SpecificKPIs[i].Description</small>
+                                    <input type="hidden" asp-for="SpecificKPIs[i].Id" />
+                                </td>
+                                <td>@Model.SpecificKPIs[i].Weight</td>
+                                <td>
+                                    <input asp-for="SpecificKPIs[i].Rating" type="number" min="0" max="4" class="form-control" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="mb-3">
+                    <label asp-for="SpecificComment" class="form-label">Appraiser's Comment (Posting-Specific)</label>
+                    <textarea asp-for="SpecificComment" class="form-control" rows="3"></textarea>
+                </div>
+
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary px-4">Save Appraisal</button>
+
+    </form>
+
+</div>

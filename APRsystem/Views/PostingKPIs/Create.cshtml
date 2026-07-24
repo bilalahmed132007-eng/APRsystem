@@ -1,0 +1,55 @@
+﻿@model APRsystem.ViewModels.PostingKPICreateViewModel
+
+@{
+    ViewData["Title"] = "Add Posting KPI";
+}
+
+<div class="container mt-4">
+
+    <h2 class="mb-4">Add Posting-Specific KPI</h2>
+
+    <form asp-action="Create" method="post">
+
+        @Html.AntiForgeryToken()
+
+        <input asp-for="PostingId" type="hidden" />
+
+        <div class="mb-3">
+            <label asp-for="Title" class="form-label"></label>
+            <input asp-for="Title" class="form-control" />
+            <span asp-validation-for="Title" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label"></label>
+            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Weight" class="form-label"></label>
+            <input asp-for="Weight" class="form-control" />
+            <span asp-validation-for="Weight" class="text-danger"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Save KPI
+        </button>
+
+        <a asp-controller="Postings"
+           asp-action="Details"
+           asp-route-id="@Model.PostingId"
+           class="btn btn-secondary">
+            Cancel
+        </a>
+
+    </form>
+
+</div>
+
+@section Scripts
+{
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
