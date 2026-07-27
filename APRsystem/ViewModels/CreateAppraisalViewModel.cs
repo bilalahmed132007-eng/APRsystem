@@ -1,4 +1,6 @@
-﻿namespace APRsystem.ViewModels
+﻿using APRsystem.Models;
+
+namespace APRsystem.ViewModels
 {
     public class CreateAppraisalViewModel
     {
@@ -8,5 +10,6 @@
 
         public DateTime FromDate { get; set; }
         public DateTime ToDate { get; set; }
+        public AppraisalType Type { get; set; }
     }
 }

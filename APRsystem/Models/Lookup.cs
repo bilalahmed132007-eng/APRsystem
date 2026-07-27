@@ -14,6 +14,10 @@ namespace APRsystem.Models
         [StringLength(100)]
         public string Value { get; set; } = string.Empty;
 
+        [Required]
+        [StringLength(150)]
+        public string Label { get; set; } = string.Empty;
+
         public bool IsActive { get; set; } = true;
     }
 }

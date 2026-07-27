@@ -4,6 +4,7 @@ using APRsystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace APRsystem.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260727060701_AddWorkflowAndLookupBasedStatus")]
+    partial class AddWorkflowAndLookupBasedStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,14 +33,8 @@ namespace APRsystem.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ActionRequired")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
-
-                    b.Property<string>("FinalRank")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("FromDate")
                         .HasColumnType("datetime2");
@@ -57,9 +54,6 @@ namespace APRsystem.Migrations
                     b.Property<decimal>("GrandTotalScore")
                         .HasColumnType("decimal(6,2)");
 
-                    b.Property<string>("HRRemarks")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<decimal>("Percentage")
                         .HasColumnType("decimal(5,2)");
 
@@ -67,12 +61,6 @@ namespace APRsystem.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("RankingBand")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RecommendationText")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RecommendedRank")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ReviewedOn")

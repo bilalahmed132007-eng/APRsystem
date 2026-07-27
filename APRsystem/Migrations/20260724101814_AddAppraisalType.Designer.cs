@@ -4,6 +4,7 @@ using APRsystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace APRsystem.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724101814_AddAppraisalType")]
+    partial class AddAppraisalType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,14 +33,8 @@ namespace APRsystem.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ActionRequired")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
-
-                    b.Property<string>("FinalRank")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("FromDate")
                         .HasColumnType("datetime2");
@@ -57,9 +54,6 @@ namespace APRsystem.Migrations
                     b.Property<decimal>("GrandTotalScore")
                         .HasColumnType("decimal(6,2)");
 
-                    b.Property<string>("HRRemarks")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<decimal>("Percentage")
                         .HasColumnType("decimal(5,2)");
 
@@ -67,12 +61,6 @@ namespace APRsystem.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("RankingBand")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RecommendationText")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RecommendedRank")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ReviewedOn")
@@ -96,7 +84,7 @@ namespace APRsystem.Migrations
                     b.Property<decimal>("SpecificTotalScore")
                         .HasColumnType("decimal(6,2)");
 
-                    b.Property<int>("StatusId")
+                    b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<int>("SupervisorId")
@@ -115,8 +103,6 @@ namespace APRsystem.Migrations
                     b.HasIndex("PostingId");
 
                     b.HasIndex("ReviewerId");
-
-                    b.HasIndex("StatusId");
 
                     b.HasIndex("SupervisorId");
 
@@ -146,10 +132,10 @@ namespace APRsystem.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("NextStageId")
+                    b.Property<int?>("NextStage")
                         .HasColumnType("int");
 
-                    b.Property<int>("StageId")
+                    b.Property<int>("Stage")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("Timestamp")
@@ -158,10 +144,6 @@ namespace APRsystem.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AppraisalId");
-
-                    b.HasIndex("NextStageId");
-
-                    b.HasIndex("StageId");
 
                     b.ToTable("AppraisalHistories");
                 });
@@ -497,11 +479,6 @@ namespace APRsystem.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
                     b.Property<string>("Value")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -597,49 +574,6 @@ namespace APRsystem.Migrations
                     b.HasIndex("PostingId");
 
                     b.ToTable("PostingKPIs");
-                });
-
-            modelBuilder.Entity("APRsystem.Models.Workflow", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CrudPermission")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("CurrentStateId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Entity")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Icon")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsCommentMandatory")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("NextStateId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CurrentStateId");
-
-                    b.HasIndex("NextStateId");
-
-                    b.ToTable("Workflows");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -797,12 +731,6 @@ namespace APRsystem.Migrations
                         .WithMany()
                         .HasForeignKey("ReviewerId");
 
-                    b.HasOne("APRsystem.Models.Lookup", "Status")
-                        .WithMany()
-                        .HasForeignKey("StatusId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("APRsystem.Models.Employee", "Supervisor")
                         .WithMany()
                         .HasForeignKey("SupervisorId")
@@ -815,8 +743,6 @@ namespace APRsystem.Migrations
 
                     b.Navigation("Reviewer");
 
-                    b.Navigation("Status");
-
                     b.Navigation("Supervisor");
                 });
 
@@ -828,22 +754,7 @@ namespace APRsystem.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("APRsystem.Models.Lookup", "NextStage")
-                        .WithMany()
-                        .HasForeignKey("NextStageId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("APRsystem.Models.Lookup", "Stage")
-                        .WithMany()
-                        .HasForeignKey("StageId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("Appraisal");
-
-                    b.Navigation("NextStage");
-
-                    b.Navigation("Stage");
                 });
 
             modelBuilder.Entity("APRsystem.Models.AppraisalKPI", b =>
@@ -945,25 +856,6 @@ namespace APRsystem.Migrations
                         .IsRequired();
 
                     b.Navigation("Posting");
-                });
-
-            modelBuilder.Entity("APRsystem.Models.Workflow", b =>
-                {
-                    b.HasOne("APRsystem.Models.Lookup", "CurrentState")
-                        .WithMany()
-                        .HasForeignKey("CurrentStateId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("APRsystem.Models.Lookup", "NextState")
-                        .WithMany()
-                        .HasForeignKey("NextStateId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CurrentState");
-
-                    b.Navigation("NextState");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

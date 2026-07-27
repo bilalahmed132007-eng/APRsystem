@@ -45,9 +45,12 @@ public class EmployeesController : Controller
             if (User.IsInRole("Supervisor"))
             {
                 var supervisorEmployee = await _context.Employees
-                    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
                 var supervisorId = supervisorEmployee?.Id;
+
+                // Pass supervisor's Employee Id to the view
+                ViewBag.SupervisorId = supervisorId;
 
                 employeesQuery = employeesQuery.Where(e =>
                     e.ApplicationUserId == currentUserId ||

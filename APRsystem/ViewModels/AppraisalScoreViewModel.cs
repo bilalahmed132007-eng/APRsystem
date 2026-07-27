@@ -14,5 +14,9 @@ namespace APRsystem.ViewModels
 
         public List<AppraisalKPI> SpecificKPIs { get; set; } = new();
         public string? SpecificComment { get; set; }
+        public int SupervisorId { get; set; }
+      
+        public string? RecommendationText { get; set; }
+        public string? RecommendedRank { get; set; }
     }
 }

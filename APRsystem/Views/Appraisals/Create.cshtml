@@ -17,6 +17,12 @@
         <input type="hidden" asp-for="SupervisorId" />
 
         <div class="mb-3">
+            <label asp-for="Type" class="form-label"></label>
+            <select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<APRsystem.Models.AppraisalType>()">
+            </select>
+        </div>
+
+        <div class="mb-3">
             <label asp-for="FromDate" class="form-label"></label>
             <input asp-for="FromDate" type="date" class="form-control" />
         </div>
@@ -26,7 +32,7 @@
             <input asp-for="ToDate" type="date" class="form-control" />
         </div>
 
-        <button type="submit" class="btn btn-primary">Create & Continue to Scoring</button>
+        <button type="submit" class="btn btn-primary">Create Appraisal</button>
         <a asp-controller="Employees" asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-secondary">Cancel</a>
 
     </form>

@@ -20,7 +20,8 @@ namespace APRsystem.Data
         {
             _httpContextAccessor = httpContextAccessor;
         }
-
+       
+        public DbSet<Workflow> Workflows { get; set; }
         public DbSet<Contract> Contracts { get; set; }
         public DbSet<KPI> KPIs { get; set; }
         public DbSet<Employee> Employees { get; set; }
@@ -32,6 +33,7 @@ namespace APRsystem.Data
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Appraisal> Appraisals { get; set; }
         public DbSet<AppraisalKPI> AppraisalKPIs { get; set; }
+        public DbSet<AppraisalHistory> AppraisalHistories { get; set; }
         protected override void OnModelCreating(ModelBuilder builder)
         {
 
@@ -42,7 +44,18 @@ namespace APRsystem.Data
     .HasForeignKey(pk => pk.PostingId)
     .OnDelete(DeleteBehavior.Cascade);
 
-            
+            builder.Entity<Workflow>()
+    .HasOne(w => w.CurrentState)
+    .WithMany()
+    .HasForeignKey(w => w.CurrentStateId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Workflow>()
+                .HasOne(w => w.NextState)
+                .WithMany()
+                .HasForeignKey(w => w.NextStateId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Employee self-reference (Supervisor)
             builder.Entity<Employee>()
                 .HasOne(e => e.Supervisor)
@@ -139,6 +152,23 @@ namespace APRsystem.Data
                 .HasOne(a => a.Supervisor)
                 .WithMany()
                 .HasForeignKey(a => a.SupervisorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            builder.Entity<Appraisal>()
+    .HasOne(a => a.Status)
+    .WithMany()
+    .HasForeignKey(a => a.StatusId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<AppraisalHistory>()
+                .HasOne(h => h.Stage)
+                .WithMany()
+                .HasForeignKey(h => h.StageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<AppraisalHistory>()
+                .HasOne(h => h.NextStage)
+                .WithMany()
+                .HasForeignKey(h => h.NextStageId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
             // Entities we never want to audit (avoids noise + avoids Identity table clutter)

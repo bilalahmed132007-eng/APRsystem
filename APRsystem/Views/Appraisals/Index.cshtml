@@ -1,4 +1,8 @@
 ﻿@model IEnumerable<APRsystem.Models.Appraisal>
+@using Microsoft.AspNetCore.Identity
+@using APRsystem.Models.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject APRsystem.Data.ApplicationDbContext DbContext
 
 @{
     ViewData["Title"] = "Performance Appraisals";
@@ -12,11 +16,46 @@
         "Needs Improvement" => "badge-inactive",
         _ => "badge bg-secondary"
     };
-}
 
+    string StatusClass(string statusValue) => statusValue switch
+    {
+        "Draft" => "badge bg-secondary",
+        "SelfAssessment" => "badge bg-info text-dark",
+        "SupervisorReview" => "badge bg-primary",
+        "SubmittedForReview" => "badge bg-warning text-dark",
+        "HRReviewed" => "badge bg-warning",
+        "Approved" => "badge bg-success",
+        "Rejected" => "badge bg-danger",
+        _ => "badge bg-secondary"
+    };
+
+    var currentUserId = UserManager.GetUserId(User);
+    var currentEmployee = DbContext.Employees.FirstOrDefault(e => e.ApplicationUserId == currentUserId);
+    bool CanScore(APRsystem.Models.Appraisal a)
+    {
+        if (currentEmployee == null) return false;
+
+        bool isSupervisor = currentEmployee.Id == a.SupervisorId;
+        bool isEmployee = currentEmployee.Id == a.EmployeeId;
+        bool isHR = User.IsInRole("HR");
+
+        string statusValue = a.Status.Value;
+
+        return (statusValue == "Draft" && (isSupervisor || isHR))
+            || (statusValue == "SelfAssessment" && isEmployee)
+            || (statusValue == "SupervisorReview" && isSupervisor);
+    }
+}
 <div class="container-fluid py-3">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @TempData["Success"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
         <div>
             <h2 class="fw-bold mb-1">Performance Appraisals</h2>
             <small class="text-muted">All appraisal records you have access to</small>
@@ -30,6 +69,7 @@
                     <th>Employee</th>
                     <th>Supervisor</th>
                     <th>Period</th>
+                    <th>Status</th>
                     <th>Grand Score</th>
                     <th>%</th>
                     <th>Ranking</th>
@@ -52,6 +92,9 @@
                         <td>
                             @appraisal.FromDate.ToString("dd MMM yyyy") — @appraisal.ToDate.ToString("dd MMM yyyy")
                         </td>
+                        <td>
+                            <span class="@StatusClass(appraisal.Status.Value)">@appraisal.Status.Label</span>
+                        </td>
                         <td>@appraisal.GrandTotalScore / @appraisal.GrandMaxScore</td>
                         <td>@appraisal.Percentage%</td>
                         <td>
@@ -66,7 +109,10 @@
                         </td>
                         <td>
                             <a asp-action="Details" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-view">View</a>
-                            @if (appraisal.GrandMaxScore == 0)
+                            <a asp-action="History" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-view">
+                                <i class="bi bi-clock-history"></i> History
+                            </a>
+                            @if (CanScore(appraisal))
                             {
                                 <a asp-action="Score" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-edit">Score</a>
                             }

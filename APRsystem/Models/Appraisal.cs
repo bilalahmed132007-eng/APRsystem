@@ -45,9 +45,28 @@ namespace APRsystem.Models
 
         [Column(TypeName = "decimal(5,2)")]
         public decimal Percentage { get; set; }
+        public AppraisalType Type { get; set; }
 
         public string? RankingBand { get; set; }
 
         public ICollection<AppraisalKPI> AppraisalKPIs { get; set; } = new List<AppraisalKPI>();
+        public int StatusId { get; set; }
+        public Lookup Status { get; set; } = null!;
+
+        public int? ReviewerId { get; set; }
+        public Employee? Reviewer { get; set; }
+
+        public string? ReviewerComments { get; set; }
+        public DateTime? ReviewedOn { get; set; }
+        // Section 6: Performance Appraisal Ranking (Supervisor only, hidden from employee)
+        public string? RecommendationText { get; set; }
+        public string? RecommendedRank { get; set; }   // OS, AE, ME, BE, NI
+
+        // Section 7: Final Ranking (HR + Final Reviewer)
+        public string? HRRemarks { get; set; }
+        public string? FinalRank { get; set; }         // OS, AE, ME, BE, NI
+        public string? ActionRequired { get; set; }
+        public bool SelfAssessmentEnabled { get; set; } = false;
+        public ICollection<AppraisalHistory> History { get; set; } = new List<AppraisalHistory>();
     }
 }

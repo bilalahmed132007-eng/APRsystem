@@ -130,7 +130,6 @@ body {
     border-radius: 0 0 16px 16px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
     position: relative;
-    z-index: 1;
 }
 
 .content-card {
@@ -485,3 +484,171 @@ hr {
     border: none;
     background: transparent;
 }
+.dashboard-card {
+    transition: all 0.3s ease;
+}
+
+    .dashboard-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.15) !important;
+    }
+
+.card {
+    border-radius: 18px;
+}
+
+.btn {
+    transition: all 0.3s ease;
+}
+
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+.app-content {
+    animation: fadeIn .35s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+/* ============ Appraisal Details — modernized styling ============ */
+
+.apr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    margin-bottom: 24px;
+}
+
+.apr-header-title h2 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+}
+
+.apr-status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.apr-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.apr-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid #3b82f6;
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+    .apr-section.section-ranking {
+        border-left-color: #f5b041;
+    }
+
+    .apr-section.section-final {
+        border-left-color: #34d399;
+    }
+
+    .apr-section.section-history {
+        border-left-color: #9099b5;
+    }
+
+.apr-section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    background: var(--bg-card-hover);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+    .apr-section-header i {
+        font-size: 18px;
+        color: #7ea6ff;
+    }
+
+    .apr-section-header h5 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+    }
+
+    .apr-section-header small {
+        margin-left: auto;
+        color: var(--text-muted);
+    }
+
+.apr-section-body {
+    padding: 20px;
+}
+
+.apr-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    row-gap: 14px;
+    column-gap: 20px;
+}
+
+    .apr-grid dt {
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    .apr-grid dd {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 14.5px;
+        line-height: 1.5;
+    }
+
+@media (max-width: 640px) {
+    .apr-grid {
+        grid-template-columns: 1fr;
+        row-gap: 4px;
+    }
+}
+
+.apr-total-banner {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    text-align: center;
+}
+
+    .apr-total-banner .metric-label {
+        color: var(--text-muted);
+        font-size: 12.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+
+    .apr-total-banner .metric-value {
+        font-size: 24px;
+        font-weight: 700;
+    }

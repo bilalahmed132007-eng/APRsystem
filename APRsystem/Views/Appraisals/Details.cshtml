@@ -1,5 +1,10 @@
 ﻿@model APRsystem.Models.Appraisal
 
+@using Microsoft.AspNetCore.Identity
+@using APRsystem.Models.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject APRsystem.Data.ApplicationDbContext DbContext
+
 @{
     ViewData["Title"] = "Appraisal Details";
 
@@ -11,31 +16,258 @@
         "Below Expectations" => "bg-warning",
         _ => "bg-danger"
     };
+
+    string RankLabel(string? rank) => rank switch
+    {
+        "OS" => "Outstanding (OS)",
+        "AE" => "Above Expectations (AE)",
+        "ME" => "Meets Expectations (ME)",
+        "BE" => "Below Expectations (BE)",
+        "NI" => "Needs Improvement (NI)",
+        _ => "—"
+    };
+
+    var currentUserId = UserManager.GetUserId(User);
+    var currentEmployee = DbContext.Employees.FirstOrDefault(e => e.ApplicationUserId == currentUserId);
+
+    bool isSupervisor = currentEmployee?.Id == Model.SupervisorId;
+    bool isEmployee = currentEmployee?.Id == Model.EmployeeId;
+    bool isReviewer = currentEmployee?.Id == Model.ReviewerId;
+    bool isHR = User.IsInRole("HR");
+
+    string statusValue = Model.Status.Value;
+
+    string statusBadge = statusValue switch
+    {
+        "Draft" => "bg-secondary",
+        "SelfAssessment" => "bg-info text-dark",
+        "SupervisorReview" => "bg-primary",
+        "SubmittedForReview" => "bg-warning text-dark",
+        "HRReviewed" => "bg-warning",
+        "Approved" => "bg-success",
+        "Rejected" => "bg-danger",
+        _ => "bg-secondary"
+    };
 }
 
 <div class="container py-4">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold mb-0">Appraisal — @Model.Employee.FullName</h2>
+    <!-- HEADER -->
+    <div class="apr-header">
+        <div class="apr-header-title">
+            <div class="apr-status-row">
+                <span class="badge @statusBadge fs-6 px-3 py-2">@Model.Status.Label</span>
+                @if (Model.Reviewer != null)
+                {
+                    <small class="text-muted">Reviewer: @Model.Reviewer.FullName</small>
+                }
+            </div>
+            <h2>Appraisal — @Model.Employee.FullName</h2>
             <small class="text-muted">
                 @Model.FromDate.ToString("dd MMM yyyy") — @Model.ToDate.ToString("dd MMM yyyy")
                 &nbsp;•&nbsp; Supervisor: @Model.Supervisor.FullName
             </small>
+
+            @if (statusValue == "Rejected" && !string.IsNullOrEmpty(Model.ReviewerComments))
+            {
+                <div class="alert alert-danger mt-3 mb-0">
+                    <strong>Reviewer feedback:</strong> @Model.ReviewerComments
+                </div>
+            }
         </div>
 
-        <a asp-controller="Employees" asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-secondary">
-            ← Back to Employee
-        </a>
+        <div class="d-flex flex-column align-items-end gap-2">
+            <div class="apr-actions">
+                @* Supervisor: allow self-assessment while still Draft *@
+                @if (isSupervisor && statusValue == "Draft")
+                {
+                    <form asp-action="AllowSelfAssessment" asp-route-id="@Model.Id" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-person-check me-1"></i>Allow Self-Assessment
+                        </button>
+                    </form>
+                    <a asp-action="Score" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm">Score Directly</a>
+                }
+
+                @* Employee: score during self-assessment stage *@
+                @if (isEmployee && statusValue == "SelfAssessment")
+                {
+                    <a asp-action="Score" asp-route-id="@Model.Id" class="btn btn-info btn-sm">Complete Self-Assessment</a>
+                }
+
+                @* Supervisor: finalize scoring *@
+                @if (isSupervisor && statusValue == "SupervisorReview")
+                {
+                    <a asp-action="Score" asp-route-id="@Model.Id" class="btn btn-primary btn-sm">Review &amp; Finalize Scoring</a>
+
+                    @if (Model.SelfAssessmentEnabled)
+                    {
+                        <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#sendBackModal">
+                            Send Back to Employee
+                        </button>
+                    }
+                }
+
+                @* HR: add remarks after supervisor submits *@
+                @if (isHR && statusValue == "SubmittedForReview")
+                {
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#hrReviewModal">
+                        Add HR Remarks
+                    </button>
+                }
+
+                @* Reviewer: approve/reject after HR reviews *@
+                @if (isReviewer && statusValue == "HRReviewed")
+                {
+                    <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal">
+                        Approve
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        Reject
+                    </button>
+                }
+            </div>
+
+            <a asp-controller="Employees" asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-secondary btn-sm">
+                ← Back to Employee
+            </a>
+        </div>
     </div>
 
-    <!-- GENERAL KPIs -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-dark">
-            <h5 class="mb-0">General KPIs</h5>
+    <!-- HR Remarks Modal -->
+    @if (isHR && statusValue == "SubmittedForReview")
+    {
+        <div class="modal fade" id="hrReviewModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form asp-action="HRReview" asp-route-id="@Model.Id" method="post">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">HR Remarks</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label class="form-label">HR Remarks</label>
+                            <textarea name="hrRemarks" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Submit</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
-        <div class="card-body">
-            <table class="table table-bordered">
+    }
+
+    <!-- Approve Modal -->
+    @if (isReviewer && statusValue == "HRReviewed")
+    {
+        <div class="modal fade" id="approveModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form asp-action="Approve" asp-route-id="@Model.Id" method="post">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Approve Appraisal</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label class="form-label">Final Reviewer's Remarks</label>
+                            <textarea name="reviewerComments" class="form-control mb-3" rows="3"></textarea>
+
+                            <label class="form-label">Final Rank</label>
+                            <select name="finalRank" class="form-select mb-3">
+                                <option value="">-- Select --</option>
+                                <option value="OS">Outstanding (OS)</option>
+                                <option value="AE">Above Expectations (AE)</option>
+                                <option value="ME">Meets Expectations (ME)</option>
+                                <option value="BE">Below Expectations (BE)</option>
+                                <option value="NI">Needs Improvement (NI)</option>
+                            </select>
+
+                            <label class="form-label">Action Required (if any)</label>
+                            <textarea name="actionRequired" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-success">Confirm Approve</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+
+    <!-- Reject Modal -->
+    @if (isReviewer && statusValue == "HRReviewed")
+    {
+        <div class="modal fade" id="rejectModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form asp-action="Reject" asp-route-id="@Model.Id" method="post">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Reject Appraisal</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label class="form-label">Reason for rejection</label>
+                            <textarea name="reviewerComments" class="form-control mb-3" rows="3" required></textarea>
+
+                            <label class="form-label">Final Rank</label>
+                            <select name="finalRank" class="form-select mb-3">
+                                <option value="">-- Select --</option>
+                                <option value="OS">Outstanding (OS)</option>
+                                <option value="AE">Above Expectations (AE)</option>
+                                <option value="ME">Meets Expectations (ME)</option>
+                                <option value="BE">Below Expectations (BE)</option>
+                                <option value="NI">Needs Improvement (NI)</option>
+                            </select>
+
+                            <label class="form-label">Action Required (if any)</label>
+                            <textarea name="actionRequired" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger">Confirm Reject</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+
+    <!-- Send Back Modal -->
+    @if (isSupervisor && statusValue == "SupervisorReview" && Model.SelfAssessmentEnabled)
+    {
+        <div class="modal fade" id="sendBackModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form asp-action="SendBackToEmployee" asp-route-id="@Model.Id" method="post">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Send Back for Re-Assessment</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label class="form-label">Reason / notes for employee</label>
+                            <textarea name="comments" class="form-control" rows="3" required></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-warning">Confirm Send Back</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+
+    <!-- GENERAL KPIs -->
+    <div class="apr-section">
+        <div class="apr-section-header">
+            <i class="bi bi-list-check"></i>
+            <h5>General KPIs</h5>
+        </div>
+        <div class="apr-section-body">
+            <table class="table table-bordered mb-3">
                 <thead>
                     <tr>
                         <th>Title</th>
@@ -69,18 +301,21 @@
                     </tr>
                 </tfoot>
             </table>
-
-            <p><strong>Comment:</strong> @(string.IsNullOrEmpty(Model.GeneralComment) ? "—" : Model.GeneralComment)</p>
+            <dl class="apr-grid mb-0">
+                <dt>Comment</dt>
+                <dd>@(string.IsNullOrEmpty(Model.GeneralComment) ? "—" : Model.GeneralComment)</dd>
+            </dl>
         </div>
     </div>
 
     <!-- SPECIFIC KPIs -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-dark">
-            <h5 class="mb-0">Posting-Specific KPIs</h5>
+    <div class="apr-section">
+        <div class="apr-section-header">
+            <i class="bi bi-briefcase"></i>
+            <h5>Posting-Specific KPIs</h5>
         </div>
-        <div class="card-body">
-            <table class="table table-bordered">
+        <div class="apr-section-body">
+            <table class="table table-bordered mb-3">
                 <thead>
                     <tr>
                         <th>Title</th>
@@ -114,18 +349,83 @@
                     </tr>
                 </tfoot>
             </table>
-
-            <p><strong>Comment:</strong> @(string.IsNullOrEmpty(Model.SpecificComment) ? "—" : Model.SpecificComment)</p>
+            <dl class="apr-grid mb-0">
+                <dt>Comment</dt>
+                <dd>@(string.IsNullOrEmpty(Model.SpecificComment) ? "—" : Model.SpecificComment)</dd>
+            </dl>
         </div>
     </div>
 
     <!-- GRAND TOTAL -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body text-center">
-            <h4>Grand Total: @Model.GrandTotalScore / @Model.GrandMaxScore</h4>
-            <h4>Percentage: @Model.Percentage%</h4>
-            <span class="badge @bandColor fs-6 px-3 py-2">@Model.RankingBand</span>
+    <div class="apr-section">
+        <div class="apr-section-body apr-total-banner">
+            <div>
+                <div class="metric-label">Grand Total</div>
+                <div class="metric-value">@Model.GrandTotalScore / @Model.GrandMaxScore</div>
+            </div>
+            <div>
+                <div class="metric-label">Percentage</div>
+                <div class="metric-value">@Model.Percentage%</div>
+            </div>
+            <div>
+                <div class="metric-label">Ranking</div>
+                <span class="badge @bandColor fs-6 px-3 py-2">@Model.RankingBand</span>
+            </div>
         </div>
     </div>
+
+    <!-- SECTION 6: Performance Ranking (Supervisor's Recommendation) — hidden from employee -->
+    @if (!isEmployee && (!string.IsNullOrEmpty(Model.RecommendationText) || !string.IsNullOrEmpty(Model.RecommendedRank)))
+    {
+        <div class="apr-section section-ranking">
+            <div class="apr-section-header">
+                <i class="bi bi-star"></i>
+                <h5>Performance Appraisal Ranking</h5>
+                <small>Not shared with employee</small>
+            </div>
+            <div class="apr-section-body">
+                <dl class="apr-grid mb-0">
+                    <dt>Appraiser's Recommendation</dt>
+                    <dd>@(string.IsNullOrEmpty(Model.RecommendationText) ? "—" : Model.RecommendationText)</dd>
+
+                    <dt>Recommended Rank</dt>
+                    <dd>@RankLabel(Model.RecommendedRank)</dd>
+                </dl>
+            </div>
+        </div>
+    }
+
+    <!-- SECTION 7: Final Ranking (HR + Final Reviewer) -->
+    @if (!string.IsNullOrEmpty(Model.HRRemarks) || !string.IsNullOrEmpty(Model.ReviewerComments) || !string.IsNullOrEmpty(Model.FinalRank))
+    {
+        <div class="apr-section section-final">
+            <div class="apr-section-header">
+                <i class="bi bi-check2-circle"></i>
+                <h5>Final Ranking</h5>
+                @if (Model.ReviewedOn.HasValue)
+                {
+                    <small>Reviewed on @Model.ReviewedOn.Value.ToString("dd MMM yyyy")</small>
+                }
+            </div>
+            <div class="apr-section-body">
+                <dl class="apr-grid mb-0">
+                    <dt>HR Remarks</dt>
+                    <dd>@(string.IsNullOrEmpty(Model.HRRemarks) ? "—" : Model.HRRemarks)</dd>
+
+                    <dt>Final Reviewer's Remarks</dt>
+                    <dd>@(string.IsNullOrEmpty(Model.ReviewerComments) ? "—" : Model.ReviewerComments)</dd>
+
+                    <dt>Final Rank</dt>
+                    <dd>@RankLabel(Model.FinalRank)</dd>
+
+                    <dt>Action Required</dt>
+                    <dd>@(string.IsNullOrEmpty(Model.ActionRequired) ? "—" : Model.ActionRequired)</dd>
+                </dl>
+            </div>
+        </div>
+    }
+
+    <!-- HISTORY -->
+    
 
 </div>

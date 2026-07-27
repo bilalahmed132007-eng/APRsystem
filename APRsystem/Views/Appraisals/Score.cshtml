@@ -1,7 +1,16 @@
 ﻿@model APRsystem.ViewModels.AppraisalScoreViewModel
 
+@using Microsoft.AspNetCore.Identity
+@using APRsystem.Models.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject APRsystem.Data.ApplicationDbContext DbContext
+
 @{
     ViewData["Title"] = "Score Appraisal";
+
+    var currentUserId = UserManager.GetUserId(User);
+    var currentEmployee = DbContext.Employees.FirstOrDefault(e => e.ApplicationUserId == currentUserId);
+    bool isSupervisor = currentEmployee?.Id == Model.SupervisorId;
 }
 
 <div class="container py-4">
@@ -18,6 +27,7 @@
     <form asp-action="Score" method="post">
 
         <input type="hidden" asp-for="AppraisalId" />
+        <input type="hidden" asp-for="SupervisorId" />
 
         <!-- GENERAL KPIs -->
         <div class="card shadow-sm border-0 mb-4">
@@ -102,6 +112,38 @@
 
             </div>
         </div>
+
+        @* SECTION 6: Performance Appraisal Ranking — Supervisor only, not shared with employee *@
+        @if (isSupervisor)
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0">Performance Appraisal Ranking</h5>
+                    <small class="text-muted">Not shared with employee</small>
+                </div>
+                <div class="card-body">
+
+                    <div class="mb-3">
+                        <label asp-for="RecommendationText" class="form-label">Appraiser's Recommendation</label>
+                        <textarea asp-for="RecommendationText" class="form-control" rows="3"
+                                  placeholder="Clarify reason if recommendation differs from calculated score"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="RecommendedRank" class="form-label">Recommended Rank</label>
+                        <select asp-for="RecommendedRank" class="form-select">
+                            <option value="">-- Select --</option>
+                            <option value="OS">Outstanding (OS) — 90% and above</option>
+                            <option value="AE">Above Expectations (AE) — 75% - 89%</option>
+                            <option value="ME">Meets Expectations (ME) — 50% - 74%</option>
+                            <option value="BE">Below Expectations (BE) — 30% - 49%</option>
+                            <option value="NI">Needs Improvement (NI) — Below 30%</option>
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+        }
 
         <button type="submit" class="btn btn-primary px-4">Save Appraisal</button>
 
