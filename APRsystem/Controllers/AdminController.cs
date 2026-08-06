@@ -36,12 +36,6 @@ public class AdminController : Controller
     public IActionResult Roles()
     {
         var roles = _roleManager.Roles.ToList();
-
-        foreach (var role in roles)
-        {
-            Console.WriteLine($"ROLE: {role.Name}");
-        }
-
         return View(roles);
     }
     public async Task<IActionResult> ManageUsers()

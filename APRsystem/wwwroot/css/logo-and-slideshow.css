@@ -1,0 +1,193 @@
+/* ===================================================================
+   LOGO — navbar brand mark
+   =================================================================== */
+
+.brand-divider {
+    width: 1px;
+    height: 32px;
+    background: var(--border-strong, rgba(15, 23, 42, 0.14));
+}
+
+.app-brand img {
+    height: 34px;
+    width: auto;
+    display: block;
+}
+
+/* If you keep the text lockup next to the mark */
+.app-brand .brand-name {
+    font-weight: 700;
+    font-size: 15.5px;
+    color: var(--text-primary);
+    letter-spacing: 0.1px;
+}
+
+/* ===================================================================
+   ACHIEVEMENTS SLIDESHOW — dashboard homepage section
+   =================================================================== */
+
+.achv-slideshow {
+    position: relative;
+    width: 100%;
+    height: 320px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-md);
+    margin-bottom: 24px;
+}
+
+.achv-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .6s ease;
+    display: flex;
+    align-items: flex-end;
+}
+
+    .achv-slide.is-active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+.achv-slide-image {
+    position: absolute;
+    inset: 0;
+    background-size: contain;
+    background-position: center;
+}
+
+    /* Readability scrim so overlay text never fights the photo */
+    .achv-slide-image::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(15,23,42,0.15) 0%, rgba(15,23,42,.78) 100%);
+    }
+
+/* Stat slides use a soft gradient instead of a photo */
+.achv-slide-stat {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--accent) 0%, #7c9cf0 55%, #a58bf0 100%);
+}
+
+.achv-slide-content {
+    position: relative;
+    z-index: 2;
+    padding: 28px 32px;
+    color: #ffffff;
+    max-width: 640px;
+}
+
+.achv-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.85;
+    margin-bottom: 6px;
+}
+
+.achv-headline {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0 0 6px 0;
+}
+
+.achv-subtext {
+    font-size: 14px;
+    opacity: 0.92;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.achv-stat-number {
+    font-size: 44px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+/* Dots */
+.achv-dots {
+    position: absolute;
+    z-index: 3;
+    bottom: 14px;
+    right: 20px;
+    display: flex;
+    gap: 6px;
+}
+
+.achv-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.45);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: background .2s ease, transform .2s ease;
+}
+
+    .achv-dot:hover {
+        background: rgba(255, 255, 255, 0.75);
+    }
+
+    .achv-dot.is-active {
+        background: #ffffff;
+        transform: scale(1.15);
+    }
+
+    .achv-dot:focus-visible {
+        outline: 2px solid #ffffff;
+        outline-offset: 2px;
+    }
+
+@media (max-width: 640px) {
+    .achv-slideshow {
+        height: 260px;
+    }
+
+    .achv-headline {
+        font-size: 26px;
+        font-weight: 700;
+        line-height: 1.25;
+        margin: 0 0 6px 0;
+        color: #ffffff;
+    }
+
+    .achv-stat-number {
+        font-size: 34px;
+    }
+}
+
+.achv-watermark {
+    position: absolute;
+    right: -20px;
+    bottom: -30px;
+    width: 240px;
+    height: 240px;
+    opacity: 0.18;
+    z-index: 1;
+}
+
+.achv-icon-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+    .achv-icon-badge svg {
+        width: 24px;
+        height: 24px;
+    }

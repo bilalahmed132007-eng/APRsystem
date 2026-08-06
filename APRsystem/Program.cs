@@ -1,8 +1,9 @@
+using APRsystem.Authorization;
 using APRsystem.Data;
+using APRsystem.Models.Identity;
+using APRsystem.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using APRsystem.Models.Identity;
-using APRsystem.Authorization;
 
 
 
@@ -14,6 +15,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<WorkflowService>();
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 {
@@ -23,6 +25,15 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>();
 
 builder.Services.AddControllersWithViews();
+
+// Explicit AddRazorPages so we can carve out an AllowAnonymous exception for the
+// Identity area — without this, the global FallbackPolicy below (which requires
+// an authenticated user on every endpoint) also applies to the Login page itself,
+// causing an infinite login redirect loop.
+builder.Services.AddRazorPages(options =>
+{
+    options.Conventions.AllowAnonymousToAreaFolder("Identity", "/Account");
+});
 
 // 👇 Add this block
 builder.Services.AddAuthorization(options =>
@@ -77,6 +88,23 @@ using (var scope = app.Services.CreateScope())
     await APRsystem.Seeds.RoleSeeder.SeedRolesAsync(services);
     await APRsystem.Seeds.AdminSeeder.SeedAdminAsync(services);
     await APRsystem.Seeds.PermissionSeeder.SeedPermissionsAsync(services);
+    await APRsystem.Seeds.EmployeeSeeder.SeedTestHierarchyAsync(services);
+
+    // Manual demo-data seed: run with `dotnet run -- seed`.
+    // Seeds the DB then exits immediately — does not start the web server.
+    if (args.Contains("seed"))
+    {
+        await APRsystem.Seeds.DemoDataSeeder.SeedAsync(services);
+        return;
+    }
+
+    // One-off fixup for supervisor relationships on already-seeded data.
+    // Run with: dotnet run -- fix-supervisors
+    if (args.Contains("fix-supervisors"))
+    {
+        await APRsystem.Seeds.DemoDataSeeder.FixSupervisorsAsync(services);
+        return;
+    }
 }
 
 app.Run();

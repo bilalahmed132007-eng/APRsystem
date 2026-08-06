@@ -1,9 +1,12 @@
 
+using APRsystem.Data;
+using APRsystem.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using APRsystem.Models;
-using APRsystem.Data;
 
+
+[Authorize(Roles = "Admin")]
 public class LookupsController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -76,8 +79,7 @@ public class LookupsController : Controller
     }
 
     // POST: LOOKUPS/Edit/5
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+   
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int? id, [Bind("Id,Category,Value,IsActive")] Lookup lookup)
@@ -134,16 +136,24 @@ public class LookupsController : Controller
     public async Task<IActionResult> DeleteConfirmed(int? id)
     {
         var lookup = await _context.Lookups.FindAsync(id);
-        if (lookup != null)
+        if (lookup == null)
+            return NotFound();
+
+        bool inUseAsStatus = await _context.Appraisals.AnyAsync(a => a.StatusId == lookup.Id);
+        bool inUseAsDesignation = await _context.Postings.AnyAsync(p => p.DesignationId == lookup.Id);
+
+        if (inUseAsStatus || inUseAsDesignation)
         {
-            _context.Lookups.Remove(lookup);
+            ModelState.AddModelError("", "This lookup value is currently in use and cannot be deleted. Consider deactivating it instead (set IsActive = false).");
+            return View("Delete", lookup);
         }
 
+        _context.Lookups.Remove(lookup);
         await _context.SaveChangesAsync();
         return RedirectToAction(nameof(Index));
     }
 
-    private bool LookupExists(int? id)
+    private bool LookupExists(int id)
     {
         return _context.Lookups.Any(e => e.Id == id);
     }

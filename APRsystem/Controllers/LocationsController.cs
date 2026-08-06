@@ -118,7 +118,7 @@ public class LocationsController : Controller
         if (id == null)
         {
             return NotFound();
-        }
+        }               
 
         var location = await _context.Locations
             .FirstOrDefaultAsync(m => m.Id == id);
@@ -137,16 +137,22 @@ public class LocationsController : Controller
     public async Task<IActionResult> DeleteConfirmed(int? id)
     {
         var location = await _context.Locations.FindAsync(id);
-        if (location != null)
+        if (location == null)
+            return NotFound();
+
+        bool inUse = await _context.Postings.AnyAsync(p => p.LocationId == location.Id);
+        if (inUse)
         {
-            _context.Locations.Remove(location);
+            ModelState.AddModelError("", "This location is currently assigned to one or more postings and cannot be deleted. Consider deactivating it instead (set IsActive = false).");
+            return View("Delete", location);
         }
 
+        _context.Locations.Remove(location);
         await _context.SaveChangesAsync();
         return RedirectToAction(nameof(Index));
     }
 
-    private bool LocationExists(int? id)
+    private bool LocationExists(int id)
     {
         return _context.Locations.Any(e => e.Id == id);
     }

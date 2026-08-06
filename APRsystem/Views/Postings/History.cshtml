@@ -2,9 +2,11 @@
 
 @{
     ViewData["Title"] = "Posting History";
+    var current = Model.FirstOrDefault(p => p.IsActive);
+    var past = Model.Where(p => !p.IsActive).OrderByDescending(p => p.FromDate).ToList();
 }
 
-<div class="container py-4">
+<div class="container-fluid">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -12,51 +14,153 @@
             <small class="text-muted">@ViewBag.EmployeeName</small>
         </div>
 
-        <a asp-controller="Employees" asp-action="Details" asp-route-id="@ViewBag.EmployeeId" class="btn btn-outline-secondary">
-            ← Back to Employee
-        </a>
+        <div class="d-flex gap-2">
+            <a asp-controller="Employees" asp-action="Details" asp-route-id="@ViewBag.EmployeeId" class="btn btn-outline-secondary">
+                ← Back to Employee
+            </a>
+
+            @if (User.IsInRole("Admin") || User.IsInRole("HR"))
+            {
+                <a asp-action="Create" asp-route-employeeId="@ViewBag.EmployeeId" class="btn btn-danger px-4">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    New Posting
+                </a>
+            }
+        </div>
     </div>
 
-    <table class="table table-dark table-bordered table-hover">
-        <thead>
-            <tr>
-                <th>Department</th>
-                <th>Designation</th>
-                <th>Supervisor</th>
-                <th>Location</th>
-                <th>From Date</th>
-                <th>To Date</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var posting in Model)
-            {
-                <tr>
-                    <td>@(posting.Department?.Name ?? "—")</td>
-                    <td>@(posting.Designation?.Value ?? "—")</td>
-                    <td>@(posting.Supervisor?.FullName ?? "—")</td>
-                    <td>@(posting.Location?.Name ?? "—")</td>
-                    <td>@posting.FromDate.ToString("dd MMM yyyy")</td>
-                    <td>@(posting.ToDate.HasValue ? posting.ToDate.Value.ToString("dd MMM yyyy") : "—")</td>
-                    <td>
-                        @if (posting.IsActive)
-                        {
-                            <span class="badge bg-success">Current</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-secondary">Past</span>
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-
-    @if (!Model.Any())
+    @if (current != null)
     {
-        <p class="text-muted">No posting history found for this employee.</p>
+        <div class="posting-timeline-item posting-current mb-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+    <span class="badge-active">Current Posting</span>
+    <div class="d-flex align-items-center gap-3">
+        <small class="text-muted">Since @current.FromDate.ToString("dd MMM yyyy")</small>
+
+        @if (ViewBag.CanInitiateAppraisal == true)
+        {
+            <a asp-controller="Appraisals" asp-action="Create" asp-route-employeeId="@current.EmployeeId"
+   class="btn btn-sm btn-success">
+    <i class="bi bi-clipboard-check me-1"></i> Initiate Appraisal
+</a>
+        }
+    </div>
+</div>
+
+            <h4 class="mb-1">@(current.Designation?.Value ?? "-")</h4>
+            <p class="text-muted mb-3">@(current.Department?.Name ?? "-") · @(current.Location?.Name ?? "-")</p>
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-4">
+                    <div class="profile-field-label">Supervisor</div>
+                    <div class="profile-field-value">@(current.Supervisor?.FullName ?? "-")</div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="profile-field-label">Contract</div>
+                    <div class="profile-field-value">@(current.Contract?.ContractNumber ?? "-")</div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="profile-field-label">From</div>
+                    <div class="profile-field-value">@current.FromDate.ToString("dd MMM yyyy")</div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+    <a asp-action="Details" asp-route-id="@current.Id" class="profile-action-btn posting-btn-inline">
+        <i class="bi bi-eye-fill me-2"></i> View Details
+    </a>
+</div>
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-card text-center py-4 mb-4">
+            <p class="text-muted mb-0">No current posting on record.</p>
+        </div>
+    }
+
+    @if (past.Any())
+    {
+        <h6 class="text-muted mb-3 mt-4">
+            <i class="bi bi-clock-history me-1"></i> Earlier Postings
+        </h6>
+
+        <div class="posting-timeline">
+            @foreach (var item in past)
+            {
+                <a asp-action="Details" asp-route-id="@item.Id" class="posting-timeline-item posting-past text-decoration-none d-block mb-3">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                        <div>
+                            <div class="fw-bold">@(item.Designation?.Value ?? "-")</div>
+                            <div class="text-muted small">@(item.Department?.Name ?? "-") · @(item.Location?.Name ?? "-")</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge-inactive">Ended</span>
+                            <div class="text-muted small mt-1">
+                                @item.FromDate.ToString("MMM yyyy") &ndash; @item.ToDate?.ToString("MMM yyyy")
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+    else if (current != null)
+    {
+        <p class="text-muted">No earlier postings on record.</p>
     }
 
 </div>
+
+<style>
+    .posting-timeline-item {
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border-subtle, rgba(15,23,42,0.08));
+        border-radius: var(--radius-sm, 8px);
+        padding: 20px 24px;
+        color: inherit;
+    }
+
+    .posting-current {
+        border-left: 4px solid var(--accent, #5b8def);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+
+    .posting-past {
+        transition: background .15s ease, transform .15s ease;
+    }
+
+        .posting-past:hover {
+            background: var(--hover-bg, #f5f7fb);
+            transform: translateY(-1px);
+        }
+
+    .profile-field-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted, #8792a8);
+        margin-bottom: 4px;
+    }
+
+    .profile-field-value {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-primary, #1e2637);
+    }
+
+    .posting-btn-inline {
+        display: inline-flex;
+        margin-top: 0;
+        width: auto;
+    }
+
+    .posting-btn-appraisal {
+        background: var(--success, #35b06b);
+    }
+
+        .posting-btn-appraisal:hover {
+            background: #2c9a5c;
+        }
+</style>

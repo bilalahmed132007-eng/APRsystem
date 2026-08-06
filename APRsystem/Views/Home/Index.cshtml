@@ -5,216 +5,121 @@
     ViewData["Title"] = "Dashboard";
 }
 
-<div class="container-fluid py-3">
-
-    <div class="mb-4">
-        <h1 class="fw-bold mb-1">Dashboard</h1>
-
-        <p class="text-secondary mb-0">
-            Welcome back, <strong>@User.Identity?.Name</strong>!
-        </p>
-
-        <small class="text-muted">
-            @if (Model.IsAdminOrHR)
-            {
-                <span>Manage your organization's HR and Performance Management System.</span>
-            }
-            else if (Model.IsSupervisor)
-            {
-                <span>Overview of your team.</span>
-            }
-            else
-            {
-                <span>Your personal workspace.</span>
-            }
-        </small>
-    </div>
-
-    <!-- Quick Actions -->
-    <div class="row mt-5">
-
-        <div class="col-lg-6">
-
-            <div class="dashboard-card text-start">
-
-                <h4 class="mb-4">
-                    <i class="bi bi-lightning-charge-fill me-2"></i>
-                    Quick Actions
-                </h4>
-
-                <div class="d-grid gap-3">
-
-                    @if (User.HasClaim(Permissions.ClaimType, Permissions.UsersCreate))
-                    {
-                        <a asp-controller="Employees" asp-action="Create" class="btn btn-primary">
-                            <i class="bi bi-person-plus-fill me-2"></i>
-                            Add Employee
-                        </a>
-                    }
-
-                    @if (User.HasClaim(Permissions.ClaimType, Permissions.PostingsManage))
-                    {
-                        <a asp-controller="Postings" asp-action="Create" class="btn btn-success">
-                            <i class="bi bi-plus-circle me-2"></i>
-                            Create Posting
-                        </a>
-                    }
-
-                    @if (User.HasClaim(Permissions.ClaimType, Permissions.KPIsView))
-                    {
-                        <a asp-controller="KPIs" asp-action="Create" class="btn btn-warning">
-                            <i class="bi bi-bullseye me-2"></i>
-                            Add KPI
-                        </a>
-                    }
-
-                    <a href="#" class="btn btn-info">
-                        <i class="bi bi-calendar-event me-2"></i>
-                        Schedule Meeting
-                    </a>
-
-                    @if (Model.IsSupervisor)
-                    {
-                        <a asp-controller="Employees" asp-action="Index" class="btn btn-outline-light">
-                            <i class="bi bi-people me-2"></i>
-                            View My Team
-                        </a>
-                    }
-
-                    @if (!Model.IsAdminOrHR && !Model.IsSupervisor)
-                    {
-                        <a asp-controller="Employees" asp-action="Details" asp-route-id="@ViewBag.CurrentEmployeeId" class="btn btn-outline-light">
-                            <i class="bi bi-person-circle me-2"></i>
-                            View My Profile
-                        </a>
-                    }
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <div class="col-lg-6">
-
-            <div class="dashboard-card text-start">
-
-                <h4 class="mb-4">
-                    <i class="bi bi-clock-history me-2"></i>
-                    Recent Activity
-                </h4>
-
-                <p class="text-secondary">
-                    Recent system activity will appear here.
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    @if (Model.IsAdminOrHR)
-    {
-        <h5 class="text-white mb-3">
-            <i class="bi bi-speedometer2 me-2"></i>
-            Organization Statistics
-        </h5>
-
-        <div class="row g-4">
-
-            <div class="col-lg-3 col-md-6">
-                <a asp-controller="Employees" asp-action="Index" class="text-decoration-none">
-                    <div class="dashboard-card">
-                        <i class="bi bi-people-fill dashboard-icon"></i>
-                        <h6>Employees</h6>
-                        <h2>@Model.EmployeeCount</h2>
-                    </div>
-                </a>
-            </div>
-
-            <div class="col-lg-3 col-md-6">
-                <a asp-controller="Postings" asp-action="Index" class="text-decoration-none">
-                    <div class="dashboard-card">
-                        <i class="bi bi-briefcase-fill dashboard-icon"></i>
-                        <h6>Postings</h6>
-                        <h2>@Model.PostingCount</h2>
-                    </div>
-                </a>
-            </div>
-
-            <div class="col-lg-3 col-md-6">
-                <a asp-controller="KPIs" asp-action="Index" class="text-decoration-none">
-                    <div class="dashboard-card">
-                        <i class="bi bi-bullseye dashboard-icon"></i>
-                        <h6>KPIs</h6>
-                        <h2>@Model.KpiCount</h2>
-                    </div>
-                </a>
-            </div>
-
-            <div class="col-lg-3 col-md-6">
-                <a asp-controller="Contracts" asp-action="Index" class="text-decoration-none">
-                    <div class="dashboard-card">
-                        <i class="bi bi-file-earmark-text-fill dashboard-icon"></i>
-                        <h6>Contracts</h6>
-                        <h2>@Model.ContractCount</h2>
-                    </div>
-                </a>
-            </div>
-
-            <div class="col-lg-3 col-md-6">
-                <a asp-controller="Departments" asp-action="Index" class="text-decoration-none">
-                    <div class="dashboard-card">
-                        <i class="bi bi-diagram-3-fill dashboard-icon"></i>
-                        <h6>Departments</h6>
-                        <h2>@Model.DepartmentCount</h2>
-                    </div>
-                </a>
-            </div>
-
-            <div class="col-lg-3 col-md-6">
-                <a asp-controller="Lookups" asp-action="Index" class="text-decoration-none">
-                    <div class="dashboard-card">
-                        <i class="bi bi-list-ul dashboard-icon"></i>
-                        <h6>Lookups</h6>
-                        <h2>@Model.LookupCount</h2>
-                    </div>
-                </a>
-            </div>
-
-        </div>
-    }
-    else if (Model.IsSupervisor)
-    {
-        <h5 class="text-white mb-3">
-            <i class="bi bi-speedometer2 me-2"></i>
-            Team Statistics
-        </h5>
-
-        <div class="row g-4">
-
-            <div class="col-lg-3 col-md-6">
-                <a asp-controller="Employees" asp-action="Index" class="text-decoration-none">
-                    <div class="dashboard-card">
-                        <i class="bi bi-people-fill dashboard-icon"></i>
-                        <h6>My Team</h6>
-                        <h2>@Model.EmployeeCount</h2>
-                    </div>
-                </a>
-            </div>
-
-            <div class="col-lg-3 col-md-6">
-                <a asp-controller="Postings" asp-action="Index" class="text-decoration-none">
-                    <div class="dashboard-card">
-                        <i class="bi bi-briefcase-fill dashboard-icon"></i>
-                        <h6>Team Postings</h6>
-                        <h2>@Model.PostingCount</h2>
-                    </div>
-                </a>
-            </div>
-
-        </div>
-    }
-
+<div class="dashboard-welcome mb-4">
+    <p class="dashboard-welcome-greeting mb-1">
+        Welcome back, <strong>@User.Identity?.Name</strong>
+    </p>
+    <p class="dashboard-welcome-subtext mb-0">
+        @if (Model.IsAdminOrHR)
+        {
+            <span>Manage your organization's HR and Performance Management System.</span>
+        }
+        else if (Model.IsSupervisor)
+        {
+            <span>Overview of your team.</span>
+        }
+        else
+        {
+            <span>Your personal workspace.</span>
+        }
+    </p>
 </div>
+
+@* Employee Info + Team Tree — the first thing Employee/Supervisor users see *@
+@if (!Model.IsAdminOrHR && Model.TeamTree?.CurrentEmployee != null)
+{
+    <div class="row g-4 mb-4">
+        <div class="col-lg-4">
+            <partial name="_EmployeeInfoCard" model="Model.TeamTree.CurrentEmployee" />
+        </div>
+        <div class="col-lg-8">
+            <partial name="_TeamTree" model="Model.TeamTree" />
+        </div>
+    </div>
+}
+
+
+@if (Model.IsAdminOrHR)
+{
+    <h5 class="mt-4 mb-3">
+        <i class="bi bi-speedometer2 me-2"></i>
+        Organization Statistics
+    </h5>
+
+    <div class="row g-4">
+
+        <div class="col-lg-4 col-md-6">
+            <a asp-controller="Employees" asp-action="Index" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-card-icon"><i class="bi bi-people-fill"></i></div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value">@Model.EmployeeCount</div>
+                        <div class="stat-card-label">Employees</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <a asp-controller="Postings" asp-action="Index" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-card-icon"><i class="bi bi-briefcase-fill"></i></div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value">@Model.PostingCount</div>
+                        <div class="stat-card-label">Postings</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <a asp-controller="KPIs" asp-action="Index" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-card-icon"><i class="bi bi-bullseye"></i></div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value">@Model.KpiCount</div>
+                        <div class="stat-card-label">KPIs</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <a asp-controller="Contracts" asp-action="Index" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-card-icon"><i class="bi bi-file-earmark-text-fill"></i></div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value">@Model.ContractCount</div>
+                        <div class="stat-card-label">Contracts</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <a asp-controller="Departments" asp-action="Index" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-card-icon"><i class="bi bi-diagram-3-fill"></i></div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value">@Model.DepartmentCount</div>
+                        <div class="stat-card-label">Departments</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <a asp-controller="Lookups" asp-action="Index" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-card-icon"><i class="bi bi-list-ul"></i></div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value">@Model.LookupCount</div>
+                        <div class="stat-card-label">Lookups</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+    </div>
+}
+

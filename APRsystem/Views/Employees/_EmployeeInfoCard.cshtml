@@ -1,0 +1,118 @@
+﻿@using APRsystem.Authorization
+@model APRsystem.Models.Employee
+
+@{
+    string InitialsOf(string? name)
+    {
+        var parts = (name ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+        return (parts[0][0].ToString() + parts[^1][0].ToString()).ToUpper();
+    }
+
+    var posting = Model.Postings?.FirstOrDefault(p => p.ToDate == null);
+
+    // Employee is allowed to see the Postings button if:
+    //  - they're looking at their own record, OR
+    //  - they have organization-wide postings permission (HR/Admin), OR
+    //  - they are this employee's supervisor (has direct reports relationship)
+    // NOTE: wire the real "is this my report" check once we touch the controller —
+    // for now this mirrors the existing PostingsManage claim used elsewhere in the app.
+   @using System.Security.Claims
+
+    var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    bool canViewPostings = User.HasClaim(Permissions.ClaimType, Permissions.PostingsManage)
+                           || currentUserId == Model.ApplicationUserId;
+}
+
+
+<div class="dashboard-card text-start h-100 profile-card">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <div class="employee-avatar" style="width:64px;height:64px;font-size:22px;flex-shrink:0;">
+            @InitialsOf(Model.FullName)
+        </div>
+        <div class="min-w-0">
+            <h4 class="mb-1">@Model.FullName</h4>
+            <span class="@(Model.IsActive ? "badge-active" : "badge-inactive")">
+                @(Model.IsActive ? "Active" : "Inactive")
+            </span>
+        </div>
+    </div>
+
+    <div class="profile-field">
+        <div class="profile-field-label">Designation</div>
+        <div class="profile-field-value">@(posting?.Designation?.Label ?? "-")</div>
+    </div>
+    <div class="profile-field">
+        <div class="profile-field-label">Department</div>
+        <div class="profile-field-value">@(posting?.Department?.Name ?? "-")</div>
+    </div>
+    <div class="profile-field">
+        <div class="profile-field-label">Employee No</div>
+        <div class="profile-field-value">@Model.EmployeeNo</div>
+    </div>
+    <div class="profile-field profile-field-last">
+        <div class="profile-field-label">Joining Date</div>
+        <div class="profile-field-value">@Model.JoiningDate.ToString("dd MMM yyyy")</div>
+    </div>
+
+    @if (canViewPostings)
+    {
+        <a asp-controller="Postings" asp-action="History" asp-route-employeeId="@Model.Id" class="profile-action-btn">
+            <i class="bi bi-briefcase-fill me-2"></i> Postings
+        </a>
+    }
+</div>
+
+<style>
+    .profile-field {
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.08));
+    }
+
+    .profile-field-last {
+        border-bottom: none;
+    }
+
+    .profile-field-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted, #8792a8);
+        margin-bottom: 4px;
+    }
+
+    .profile-field-value {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-primary, #1e2637);
+        line-height: 1.4;
+    }
+
+    .profile-action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 20px;
+        background: var(--accent, #5b8def);
+        color: #fff;
+        border: none;
+        padding: 10px 18px;
+        border-radius: var(--radius-sm, 8px);
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        transition: background .15s ease, transform .15s ease;
+    }
+
+        .profile-action-btn:hover {
+            background: var(--accent-hover, #4674d6);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+    .min-w-0 {
+        min-width: 0;
+    }
+</style>

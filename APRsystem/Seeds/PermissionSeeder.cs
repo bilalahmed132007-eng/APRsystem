@@ -32,16 +32,8 @@ namespace APRsystem.Seeds
     Permissions.AuditLogsView
 },
 
-                ["Supervisor"] = new[]
-{
-    Permissions.DashboardView,
+                
 
-    Permissions.UsersView,
-    Permissions.UsersEdit,
-
-    Permissions.KPIsView,
-    Permissions.KPIsManage
-},
 
                 ["Employee"] = new[]
 {

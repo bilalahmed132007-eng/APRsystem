@@ -1,0 +1,59 @@
+/* ===================================================================
+   PAGE TRANSITIONS
+   Applied to the #page-content wrapper in _Layout.cshtml
+   =================================================================== */
+
+#page-content {
+    animation: page-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Applied by JS right before swapping content, to fade the old page out */
+#page-content.is-leaving {
+    animation: page-leave 0.25s ease forwards;
+}
+
+@keyframes page-leave {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+/* Thin progress bar across the top of the page during navigation */
+#page-transition-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: var(--accent);
+    z-index: 9999;
+    transition: width 0.3s ease, opacity 0.3s ease;
+    opacity: 0;
+}
+
+#page-transition-bar.is-active {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #page-content,
+    #page-content.is-leaving {
+        animation: none !important;
+    }
+}

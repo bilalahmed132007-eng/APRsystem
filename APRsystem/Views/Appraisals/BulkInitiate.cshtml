@@ -1,0 +1,429 @@
+﻿@model APRsystem.ViewModels.BulkInitiateAppraisalViewModel
+
+@{
+    ViewData["Title"] = "Bulk Initiate Appraisals";
+}
+
+<div class="container-fluid px-4">
+
+    <!-- Page Header -->
+    <div class="card border-0 shadow-sm mb-4 overflow-hidden">
+        <div class="card-body p-4">
+
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+
+                <div>
+                    <span class="badge bg-primary-subtle text-primary px-3 py-2 mb-3">
+                        Performance Management
+                    </span>
+
+                    <h2 class="fw-bold mb-2">
+                        Bulk Initiate Appraisals
+                    </h2>
+
+                    
+                </div>
+
+                <div class="text-end mt-3 mt-lg-0">
+
+                    <div class="fs-1 text-primary">
+                        <i class="bi bi-clipboard-check"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    
+   <!-- STEP 1 : Configure Appraisal -->
+<div class="card border-0 shadow-lg mb-4">
+
+    <div class="card-header bg-white border-0 pt-4 pb-0">
+        <h4 class="fw-bold mb-1">
+            
+            Configure Appraisal
+        </h4>
+
+        <p class="text-muted mb-0">
+            Choose the appraisal period and employee filters.
+        </p>
+    </div>
+
+    <div class="card-body pt-4">
+
+            <form id="bulkInitiateForm" method="post" asp-action="BulkInitiate">
+    @Html.AntiForgeryToken()
+
+
+            <!-- Appraisal Period -->
+            <div class="row g-4 mb-4">
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-calendar-event me-1 text-primary"></i>
+                        Appraisal From
+                    </label>
+
+                    <input type="date"
+                           name="fromDate"
+                           class="form-control form-control-lg"
+                           value="@Model.FromDate.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-calendar-check me-1 text-primary"></i>
+                        Appraisal To
+                    </label>
+
+                    <input type="date"
+                           name="toDate"
+                           class="form-control form-control-lg"
+                           value="@Model.ToDate.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <div class="col-md-4">
+
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-award me-1 text-primary"></i>
+                        Appraisal Type
+                    </label>
+
+                    <select asp-for="Type" class="form-select form-select-lg">
+
+                        @foreach (var t in Enum.GetValues(typeof(APRsystem.Models.AppraisalType)))
+                        {
+                            <option value="@t">@t</option>
+
+                        }
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            <hr class="my-4"/>
+
+            <!-- Employee Filters -->
+            <h6 class="fw-bold mb-3">
+                Employee Filters
+            </h6>
+
+            <div class="row g-4">
+
+                <div class="col-lg-3">
+
+                    <label class="form-label">
+                        Department
+                    </label>
+
+                    <select name="departmentId"
+                            asp-items="ViewBag.DepartmentId"
+                            class="form-select">
+
+                        <option value="">
+                            All Departments
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-lg-3">
+
+                    <label class="form-label">
+                        Designation
+                    </label>
+
+                    <select name="designationId"
+                            asp-items="ViewBag.DesignationId"
+                            class="form-select">
+
+                        <option value="">
+                            All Designations
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-lg-3">
+
+                    <label class="form-label">
+                        Contract Type
+                    </label>
+
+                    <select name="contractType"
+                            class="form-select">
+
+                        <option value="">
+                            All Contract Types
+                        </option>
+
+                        @foreach (var ct in (string[])ViewBag.ContractTypes)
+                        {
+                            <option value="@ct"
+                                    selected="@(ct == (string)ViewBag.SelectedContractType)">
+                                @ct
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+                <div class="col-lg-3 d-flex align-items-end">
+
+                    <div class="form-check fs-6">
+
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="showNoKpisOnly"
+                               name="showNoKpisOnly"
+                               value="true"
+                               @(Model.ShowNoKpisOnly ? "checked" : "") />
+
+                        <label class="form-check-label"
+                               for="showNoKpisOnly">
+
+                            Show Employees Without KPIs Only
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-5">
+
+                <div class="text-muted">
+
+                    <i class="bi bi-info-circle me-1"></i>
+
+                    Employees whose contracts overlap the appraisal period will be shown.
+
+                </div>
+
+                <button class="btn btn-primary btn-lg px-5">
+
+                    <i class="bi bi-arrow-right-circle me-2"></i>
+
+                    Continue
+
+                </button>
+                    
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+    <form id="bulkInitiateSubmitForm" method="post" asp-action="BulkInitiate">
+        @Html.AntiForgeryToken()
+        <!-- Hidden appraisal settings -->
+        ...
+   <!-- Hidden appraisal settings -->
+<input type="hidden"
+       name="fromDate"
+       value="@Model.FromDate.ToString("yyyy-MM-dd")" />
+
+<input type="hidden"
+       name="toDate"
+       value="@Model.ToDate.ToString("yyyy-MM-dd")" />
+
+<input type="hidden"
+       name="type"
+       value="@Model.Type" />
+
+
+        <div class="card border-0 shadow-sm">
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">
+                                <input type="checkbox" class="form-check-input" id="selectAll" />
+                            </th>
+                            <th>Employee</th>
+                            <th>Department</th>
+                            <th>Designation</th>
+                            <th>Contract Type</th>
+                            <th>KPIs</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.Employees.Any())
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    No employees match this filter.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var emp in Model.Employees)
+                            {
+                                <tr class="@(!emp.HasSpecificKpis ? "table-warning" : "")">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input employee-checkbox"
+                                               name="selectedEmployeeIds" value="@emp.EmployeeId"
+                                               disabled="@(!emp.HasSpecificKpis)" />
+                                    </td>
+                                    <td>
+                                        @emp.FullName
+                                        <br /><small class="text-muted">@emp.EmployeeNo</small>
+                                    </td>
+                                    <td>@emp.Department</td>
+                                    <td>@emp.Designation</td>
+                                    <td>@emp.ContractType</td>
+                                    <td>
+                                        @if (emp.HasSpecificKpis)
+                                        {
+                                            <span class="badge bg-success">Ready</span>
+                                            <input type="checkbox" class="form-check-input employee-checkbox"
+                                                   name="selectedEmployeeIds" value="@emp.EmployeeId"
+                                                   disabled="@(!emp.HasSpecificKpis || emp.HasActiveAppraisal)" />
+                                            <td>
+                                                @if (emp.HasActiveAppraisal)
+                                                {
+                                                    <span class="badge bg-info text-dark">In Progress</span>
+                                                }
+                                                else if (emp.HasSpecificKpis)
+                                                {
+                                                    <span class="badge bg-success">Ready</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-warning text-dark" title="No Posting-Specific KPIs defined">
+                                                        <i class="bi bi-exclamation-triangle me-1"></i>No KPIs
+                                                    </span>
+                                                }
+                                            </td>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark" title="No Posting-Specific KPIs defined">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>No KPIs
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!emp.HasSpecificKpis)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-secondary notify-supervisor-btn"
+                                                    data-employee-id="@emp.EmployeeId">
+                                                <i class="bi bi-bell"></i> Notify Supervisor
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card-body d-flex justify-content-between align-items-center border-top">
+                <small class="text-muted">
+                    Employees marked <span class="badge bg-warning text-dark">No KPIs</span> can't be selected —
+                    add Posting-Specific KPIs to their posting first, or notify their supervisor to do so.
+                </small>
+                <button type="submit" class="btn btn-danger px-4" id="initiateBtn" disabled>
+                    <i class="bi bi-clipboard-check me-2"></i> Initiate Selected (<span id="selectedCount">0</span>)
+                </button>
+            </div>
+        </div>
+   
+</form>
+</div>
+
+
+
+@section Scripts {
+    <script>
+        (function () {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = () => Array.from(document.querySelectorAll('.employee-checkbox:not(:disabled)'));
+            const initiateBtn = document.getElementById('initiateBtn');
+            const selectedCount = document.getElementById('selectedCount');
+
+            function updateCount() {
+                const checked = checkboxes().filter(c => c.checked).length;
+                selectedCount.textContent = checked;
+                initiateBtn.disabled = checked === 0;
+            }
+
+            selectAll.addEventListener('change', function () {
+                checkboxes().forEach(c => c.checked = selectAll.checked);
+                updateCount();
+            });
+
+            checkboxes().forEach(c => c.addEventListener('change', updateCount));
+
+            document.getElementById('bulkInitiateSubmitForm').addEventListener('submit', function(e) {
+                const checked = checkboxes().filter(c => c.checked).length;
+                if (checked === 0) {
+                    e.preventDefault();
+                    return;
+                }
+                if (!confirm(`Initiate appraisals for ${checked} employee(s)? This can't be undone.`)) {
+                    e.preventDefault();
+                }
+            });
+
+            updateCount();
+
+            // NEW: "Notify Supervisor" button — AJAX call, no page reload
+            const antiForgeryToken = document.querySelector('#bulkInitiateForm input[name="__RequestVerificationToken"]').value;
+
+            document.querySelectorAll('.notify-supervisor-btn').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const employeeId = this.dataset.employeeId;
+                    this.disabled = true;
+                    const originalHtml = this.innerHTML;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+                    try {
+                        const response = await fetch('@Url.Action("NotifySupervisorForMissingKpis", "Appraisals")', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'RequestVerificationToken': antiForgeryToken
+                            },
+                            body: `employeeId=${encodeURIComponent(employeeId)}`
+                        });
+                        const data = await response.json();
+
+                        const toastArea = document.getElementById('notifyToastArea');
+                        const alertClass = data.success ? 'alert-success' : 'alert-warning';
+                        toastArea.innerHTML = `<div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                            ${data.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>`;
+
+                        if (data.success) {
+                            this.innerHTML = '<i class="bi bi-check-lg"></i> Notified';
+                        } else {
+                            this.innerHTML = originalHtml;
+                            this.disabled = false;
+                        }
+                    } catch (err) {
+                        this.innerHTML = originalHtml;
+                        this.disabled = false;
+                    }
+                });
+            });
+        })();
+    </script>
+}

@@ -272,7 +272,8 @@
                     <tr>
                         <th>Title</th>
                         <th>Weight</th>
-                        <th>Rating</th>
+                        <th>Self Rating</th>
+                        <th>Supervisor Rating</th>
                         <th>Score</th>
                         <th>Max</th>
                     </tr>
@@ -287,6 +288,7 @@
                                 <small class="text-muted">@kpi.Description</small>
                             </td>
                             <td>@kpi.Weight</td>
+                            <td>@kpi.SelfRating / 4</td>
                             <td>@kpi.Rating / 4</td>
                             <td>@kpi.Score</td>
                             <td>@(kpi.Weight * 4)</td>
@@ -302,8 +304,11 @@
                 </tfoot>
             </table>
             <dl class="apr-grid mb-0">
-                <dt>Comment</dt>
-                <dd>@(string.IsNullOrEmpty(Model.GeneralComment) ? "—" : Model.GeneralComment)</dd>
+                <dt>Employee's Comment</dt>
+                <dd>@(string.IsNullOrEmpty(Model.SelfGeneralComment) ? "—" : Model.SelfGeneralComment)</dd>
+
+                <dt>Supervisor's Comment</dt>
+                <dd>@(string.IsNullOrEmpty(Model.SupervisorGeneralComment) ? "—" : Model.SupervisorGeneralComment)</dd>
             </dl>
         </div>
     </div>
@@ -320,7 +325,8 @@
                     <tr>
                         <th>Title</th>
                         <th>Weight</th>
-                        <th>Rating</th>
+                        <th>Self Rating</th>
+                        <th>Supervisor Rating</th>
                         <th>Score</th>
                         <th>Max</th>
                     </tr>
@@ -335,6 +341,7 @@
                                 <small class="text-muted">@kpi.Description</small>
                             </td>
                             <td>@kpi.Weight</td>
+                            <td>@kpi.SelfRating / 4</td>
                             <td>@kpi.Rating / 4</td>
                             <td>@kpi.Score</td>
                             <td>@(kpi.Weight * 4)</td>
@@ -350,8 +357,11 @@
                 </tfoot>
             </table>
             <dl class="apr-grid mb-0">
-                <dt>Comment</dt>
-                <dd>@(string.IsNullOrEmpty(Model.SpecificComment) ? "—" : Model.SpecificComment)</dd>
+                <dt>Employee's Comment</dt>
+                <dd>@(string.IsNullOrEmpty(Model.SelfSpecificComment) ? "—" : Model.SelfSpecificComment)</dd>
+
+                <dt>Supervisor's Comment</dt>
+                <dd>@(string.IsNullOrEmpty(Model.SupervisorSpecificComment) ? "—" : Model.SupervisorSpecificComment)</dd>
             </dl>
         </div>
     </div>
@@ -426,6 +436,6 @@
     }
 
     <!-- HISTORY -->
-    
 
+    
 </div>

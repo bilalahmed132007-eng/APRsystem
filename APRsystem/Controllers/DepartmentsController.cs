@@ -6,6 +6,7 @@ using APRsystem.Data;
 using APRsystem.Authorization;
 
 [Authorize(Policy = Permissions.DepartmentsManage)]
+
 public class DepartmentsController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -57,14 +58,6 @@ public class DepartmentsController : Controller
 
         if (!ModelState.IsValid)
         {
-            foreach (var state in ModelState)
-            {
-                foreach (var error in state.Value.Errors)
-                {
-                    Console.WriteLine($"{state.Key} : {error.ErrorMessage}");
-                }
-            }
-
             return View(department);
         }
 
@@ -148,15 +141,20 @@ public class DepartmentsController : Controller
     // POST: DEPARTMENTS/Delete/5
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
-    [Authorize(Policy = Permissions.DepartmentsManage)]
     public async Task<IActionResult> DeleteConfirmed(int? id)
     {
         var department = await _context.Departments.FindAsync(id);
-        if (department != null)
+        if (department == null)
+            return NotFound();
+
+        bool inUse = await _context.Postings.AnyAsync(p => p.DepartmentId == department.Id);
+        if (inUse)
         {
-            _context.Departments.Remove(department);
+            ModelState.AddModelError("", "This department is currently assigned to one or more postings and cannot be deleted. Consider deactivating it instead.");
+            return View("Delete", department);
         }
 
+        _context.Departments.Remove(department);
         await _context.SaveChangesAsync();
         return RedirectToAction(nameof(Index));
     }

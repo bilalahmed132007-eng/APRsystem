@@ -1,9 +1,12 @@
 
+using APRsystem.Authorization;
+using APRsystem.Data;
+using APRsystem.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using APRsystem.Models;
-using APRsystem.Data;
 
+[Authorize(Policy = Permissions.DepartmentsManage)]  // or whatever your admin-config policy is named
 public class KPIsController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -49,8 +52,7 @@ public class KPIsController : Controller
     }
 
     // POST: KPIS/Create
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+    
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create([Bind("Id,Title,Description,Weight")] KPI kpi)
@@ -86,9 +88,7 @@ public class KPIsController : Controller
     }
 
     // POST: KPIS/Edit/5
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-    [HttpPost]
+    
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int? id, [Bind("Id,Title,Description,Weight,IsGeneral")] KPI kpi)
     {

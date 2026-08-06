@@ -1,131 +1,96 @@
 ﻿@model IEnumerable<APRsystem.Models.Appraisal>
-@using Microsoft.AspNetCore.Identity
-@using APRsystem.Models.Identity
-@inject UserManager<ApplicationUser> UserManager
-@inject APRsystem.Data.ApplicationDbContext DbContext
 
 @{
     ViewData["Title"] = "Performance Appraisals";
-
-    string BandClass(string? band) => band switch
-    {
-        "Outstanding" => "badge-active",
-        "Above Expectations" => "badge-active",
-        "Meets Expectations" => "badge bg-info",
-        "Below Expectations" => "badge bg-warning text-dark",
-        "Needs Improvement" => "badge-inactive",
-        _ => "badge bg-secondary"
-    };
-
-    string StatusClass(string statusValue) => statusValue switch
-    {
-        "Draft" => "badge bg-secondary",
-        "SelfAssessment" => "badge bg-info text-dark",
-        "SupervisorReview" => "badge bg-primary",
-        "SubmittedForReview" => "badge bg-warning text-dark",
-        "HRReviewed" => "badge bg-warning",
-        "Approved" => "badge bg-success",
-        "Rejected" => "badge bg-danger",
-        _ => "badge bg-secondary"
-    };
-
-    var currentUserId = UserManager.GetUserId(User);
-    var currentEmployee = DbContext.Employees.FirstOrDefault(e => e.ApplicationUserId == currentUserId);
-    bool CanScore(APRsystem.Models.Appraisal a)
-    {
-        if (currentEmployee == null) return false;
-
-        bool isSupervisor = currentEmployee.Id == a.SupervisorId;
-        bool isEmployee = currentEmployee.Id == a.EmployeeId;
-        bool isHR = User.IsInRole("HR");
-
-        string statusValue = a.Status.Value;
-
-        return (statusValue == "Draft" && (isSupervisor || isHR))
-            || (statusValue == "SelfAssessment" && isEmployee)
-            || (statusValue == "SupervisorReview" && isSupervisor);
-    }
+    string currentScope = ViewBag.Scope ?? "own";
 }
-<div class="container-fluid py-3">
+
+<div class="container-fluid">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        @if (TempData["Success"] != null)
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                @TempData["Success"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
         <div>
-            <h2 class="fw-bold mb-1">Performance Appraisals</h2>
-            <small class="text-muted">All appraisal records you have access to</small>
+            <h2 class="fw-bold mb-0">Performance Appraisals</h2>
+            <small class="text-muted">Track appraisal status and progress</small>
         </div>
     </div>
 
-    <div class="dash-card p-0">
-        <table class="table app-table table-hover mb-0">
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Supervisor</th>
-                    <th>Period</th>
-                    <th>Status</th>
-                    <th>Grand Score</th>
-                    <th>%</th>
-                    <th>Ranking</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var appraisal in Model)
-                {
-                    <tr>
-                        <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="row-avatar">
-                                    @appraisal.Employee.FullName.Substring(0, 1).ToUpper()
-                                </span>
-                                @appraisal.Employee.FullName
-                            </div>
-                        </td>
-                        <td>@appraisal.Supervisor.FullName</td>
-                        <td>
-                            @appraisal.FromDate.ToString("dd MMM yyyy") — @appraisal.ToDate.ToString("dd MMM yyyy")
-                        </td>
-                        <td>
-                            <span class="@StatusClass(appraisal.Status.Value)">@appraisal.Status.Label</span>
-                        </td>
-                        <td>@appraisal.GrandTotalScore / @appraisal.GrandMaxScore</td>
-                        <td>@appraisal.Percentage%</td>
-                        <td>
-                            @if (!string.IsNullOrEmpty(appraisal.RankingBand))
-                            {
-                                <span class="@BandClass(appraisal.RankingBand)">@appraisal.RankingBand</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">Not scored</span>
-                            }
-                        </td>
-                        <td>
-                            <a asp-action="Details" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-view">View</a>
-                            <a asp-action="History" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-view">
-                                <i class="bi bi-clock-history"></i> History
-                            </a>
-                            @if (CanScore(appraisal))
-                            {
-                                <a asp-action="Score" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-edit">Score</a>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    <ul class="nav nav-pills mb-4">
+        <li class="nav-item">
+            <a class="nav-link @(currentScope == "own" ? "active" : "")"
+               asp-action="Index" asp-route-scope="own">
+                <i class="bi bi-person-fill me-1"></i> My Appraisals
+            </a>
+        </li>
 
-        @if (!Model.Any())
+        @if (ViewBag.HasTeam == true)
         {
-            <p class="text-muted p-4 mb-0">No appraisals found.</p>
+            <li class="nav-item">
+                <a class="nav-link @(currentScope == "team" ? "active" : "")"
+                   asp-action="Index" asp-route-scope="team">
+                    <i class="bi bi-people-fill me-1"></i> Team Appraisals
+                </a>
+            </li>
         }
+
+        @if (ViewBag.IsAdminOrHR == true)
+        {
+            <li class="nav-item">
+                <a class="nav-link @(currentScope == "all" ? "active" : "")"
+                   asp-action="Index" asp-route-scope="all">
+                    <i class="bi bi-diagram-3-fill me-1"></i> All Appraisals
+                </a>
+            </li>
+        }
+    </ul>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Employee</th>
+                        <th>Supervisor</th>
+                        <th>Type</th>
+                        <th>Period</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                No appraisals found for this filter.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var appraisal in Model)
+                        {
+                            <tr>
+                                <td>@(appraisal.Employee?.FullName ?? "-")</td>
+                                <td>@(appraisal.Supervisor?.FullName ?? "-")</td>
+                                <td>@appraisal.Type</td>
+                                <td>
+                                    @appraisal.FromDate.ToString("dd MMM yyyy") &ndash;
+                                    @appraisal.ToDate.ToString("dd MMM yyyy")
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">@(appraisal.Status?.Label ?? "-")</span>
+                                </td>
+                                <td class="text-end">
+                                    <a asp-action="Details" asp-route-id="@appraisal.Id" class="btn-chip btn-chip-view">
+                                        View
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 
 </div>

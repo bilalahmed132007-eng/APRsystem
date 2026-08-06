@@ -18,22 +18,12 @@ namespace APRsystem.Controllers
             _context = context;
         }
 
-        // GET: AuditLogs
+      
         // GET: AuditLogs
         public async Task<IActionResult> Index(AuditLogFilterViewModel filter)
         {
             var query = _context.AuditLogs.AsQueryable();
 
-            ViewBag.DebugConnectionString = _context.Database.GetConnectionString();
-            ViewBag.DebugRawCount = await _context.AuditLogs.CountAsync();
-            ViewBag.DebugFilterState =
-                $"UserName='{filter.UserName}' | " +
-                $"Action='{filter.Action}' | " +
-                $"EntityName='{filter.EntityName}' | " +
-                $"FromDate='{filter.FromDate}' | " +
-                $"ToDate='{filter.ToDate}' | " +
-                $"Page={filter.Page} | " +
-                $"PageSize={filter.PageSize}";
 
             if (!string.IsNullOrWhiteSpace(filter.UserName))
             {

@@ -15,7 +15,7 @@ namespace APRsystem.Seeds
             {
                 "Admin",
                 "HR",
-                "Supervisor",
+                
                 "Employee"
             };
 

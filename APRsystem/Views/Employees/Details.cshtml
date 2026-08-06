@@ -1,382 +1,188 @@
 @model APRsystem.ViewModels.EmployeeDetailsViewModel
 
 @{
-    ViewData["Title"] = "Employee Details";
-    var currentPosting = ViewBag.CurrentPosting as APRsystem.Models.Posting;
-}
+    ViewData["Title"] = Model.Employee.FullName;
 
-<div class="container py-4">
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold mb-0">Employee Details</h2>
-            <small class="text-muted">Full profile and employment information</small>
-        </div>
-
-        <a asp-action="Index" class="btn btn-outline-secondary">
-            ← Back to Employees
-        </a>
-    </div>
-
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body p-4">
-
-            <div class="d-flex align-items-center mb-4">
-
-                <div class="employee-avatar me-3" style="width:64px;height:64px;font-size:1.5rem;">
-                    @Model.Employee.FullName.Substring(0, 1).ToUpper()
-                </div>
-
-                <div>
-                    <h3 class="fw-bold mb-1">@Model.Employee.FullName</h3>
-                    <div class="text-muted">@Model.Employee.EmployeeNo &nbsp;•&nbsp; </div>
-                </div>
-
-                <div class="ms-auto">
-                    @if (Model.Employee.IsActive)
-                    {
-                        <span class="badge bg-success px-3 py-2">Active</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-secondary px-3 py-2">Inactive</span>
-                    }
-                </div>
-
-            </div>
-
-            <div class="my-5"></div>
-
-            <div class="row">
-
-                <!-- CONTACT INFO -->
-                <div class="col-md-6">
-
-                    <h6 class="text-muted text-uppercase small fw-bold mb-3">Contact Information</h6>
-
-                    <dl class="row mb-0">
-                        <dt class="col-sm-4">Email</dt>
-                        <dd class="col-sm-8">@Model.Employee.Email</dd>
-
-                        <dt class="col-sm-4">Phone</dt>
-                        <dd class="col-sm-8">@Model.Employee.Phone</dd>
-
-                        <dt class="col-sm-4">CNIC</dt>
-                        <dd class="col-sm-8">@Model.Employee.CNIC</dd>
-
-                        <dt class="col-sm-4">Location</dt>
-                        <dd class="col-sm-8">@(currentPosting?.Location?.Name ?? "—")</dd>
-                    </dl>
-
-                </div>
-
-                <!-- EMPLOYMENT INFO -->
-                <div class="col-md-6">
-
-                    <h6 class="text-muted text-uppercase small fw-bold mb-3">Current Posting</h6>
-
-                    <dl class="row mb-0">
-
-                        <dt class="col-sm-4">Department</dt>
-                        <dd class="col-sm-8">@(currentPosting?.Department?.Name ?? "—")</dd>
-
-                        <dt class="col-sm-4">Designation</dt>
-                        <dd class="col-sm-8">@(currentPosting?.Designation?.Value ?? "—")</dd>
-
-                        <dt class="col-sm-4">Supervisor</dt>
-                        <dd class="col-sm-8">@(currentPosting?.Supervisor?.FullName ?? "—")</dd>
-
-                        <dt class="col-sm-4">Joining Date</dt>
-                        <dd class="col-sm-8">@Model.Employee.JoiningDate.ToString("dd MMM yyyy")</dd>
-
-                        <dt class="col-sm-4">Posting From</dt>
-                        <dd class="col-sm-8">
-                            @(currentPosting != null ? currentPosting.FromDate.ToString("dd MMM yyyy") : "—")
-                        </dd>
-
-                    </dl>
-
-                </div>
-
-            </div>
-
-        </div>
-    </div>
-    <a asp-controller="Postings"
-       asp-action="History"
-       asp-route-employeeId="@Model.Employee.Id"
-       class="btn btn-outline-primary">
-        <i class="bi bi-clock-history me-1"></i> View Posting History
-    </a>
-    @{
-        var teamMembers = ViewBag.TeamMembers as List<APRsystem.Models.Employee>;
-        var teammates = ViewBag.Teammates as List<APRsystem.Models.Employee>;
+    string InitialsOf(string? name)
+    {
+        var parts = (name ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+        return (parts[0][0].ToString() + parts[^1][0].ToString()).ToUpper();
     }
 
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body p-4">
+    var teamTreeModel = new APRsystem.ViewModels.TeamTreeViewModel
+    {
+        CurrentEmployee = Model.Employee,
+        TeamSupervisor = Model.Supervisor,
+        GrandSupervisor = Model.GrandSupervisor,
 
-            <h6 class="text-muted text-uppercase small fw-bold mb-4">
-                Team Hierarchy
-            </h6>
+        Teammates = Model.Teammates,
+        DirectReports = Model.DirectReports
+    };
 
-            <div class="my-5"></div>
+    bool canViewPostings = Model.CanViewPostings;
+}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a asp-controller="Home" asp-action="Index">Dashboard</a>
+        </li>
 
-            <!-- Manager -->
+        @if (Model.GrandSupervisor != null)
+        {
+            <li class="breadcrumb-item">
+                <a asp-controller="Employees" asp-action="Details" asp-route-id="@Model.GrandSupervisor.Id">
+                    @Model.GrandSupervisor.FullName
+                </a>
+            </li>
+        }
 
-            <div class="mb-5">
+        @if (Model.Supervisor != null)
+        {
+            <li class="breadcrumb-item">
+                <a asp-controller="Employees" asp-action="Details" asp-route-id="@Model.Supervisor.Id">
+                    @Model.Supervisor.FullName
+                </a>
+            </li>
+        }
 
-                <h6 class="text-info fw-bold mb-3">
-                    <div class="text-center mb-3">
+        <li class="breadcrumb-item active" aria-current="page">
+            @Model.Employee.FullName
+        </li>
+    </ol>
+</nav>
+<div class="row g-4">
 
-                        <h6 class="text-info fw-bold mb-3">
-                            <i class="bi bi-arrow-up-circle-fill me-2"></i>
-                            Reports To
-                        </h6>
+    <!-- Middle: Employee Info + Postings -->
+    <div class="col-lg-4">
+        <div class="tab-content" id="employeeTabsContent">
 
-                    </div>
-                </h6>
-
-                @if (Model.Supervisor != null)
-                {
-                    <div class="row justify-content-center">
-
-                        <div class="col-md-6 col-lg-5">
-
-                            <a asp-action="Details"
-                               asp-route-id="@Model.Supervisor.Id"
-                               class="text-decoration-none">
-
-                                <div class="card hierarchy-card h-100">
-
-                                    <div class="card-body d-flex align-items-center">
-
-                                        <div class="employee-avatar me-3">
-                                            @Model.Supervisor.FullName.Substring(0, 1).ToUpper()
-                                        </div>
-
-                                        <div>
-
-                                            <div class="fw-bold text-white">
-                                                @Model.Supervisor.FullName
-                                            </div>
-
-                                            <div class="text-secondary small">
-                                                @(Model.Supervisor.Postings.FirstOrDefault()?.Designation?.Value ?? "Supervisor")
-                                            </div>
-
-                                            <div class="text-info small">
-                                                @(Model.Supervisor.Postings.FirstOrDefault()?.Department?.Name ?? "")
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </a>
-
+            <div class="tab-pane fade show active" id="overview-pane" role="tabpanel">
+                <div class="dashboard-card text-start profile-card">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div class="employee-avatar" style="width:64px;height:64px;font-size:22px;flex-shrink:0;">
+                            @InitialsOf(Model.Employee.FullName)
                         </div>
-
-                    </div>
-                }
-                else
-                {
-                    <p class="text-muted mb-0">
-                        No supervisor assigned.
-                    </p>
-                }
-
-                <div class="connector"></div>
-                <div class="my-5"></div>
-
-                <div class="card border-0 shadow-sm hierarchy-card mb-5">
-
-                    <div class="card-body text-center">
-
-                        <div class="employee-avatar mx-auto mb-3"
-                             style="width:70px;height:70px;font-size:24px;">
-
-                            @Model.Employee.FullName.Substring(0, 1).ToUpper()
-
+                        <div class="min-w-0">
+                            <h4 class="mb-1">@Model.Employee.FullName</h4>
+                            <span class="@(Model.Employee.IsActive ? "badge-active" : "badge-inactive")">
+                                @(Model.Employee.IsActive ? "Active" : "Inactive")
+                            </span>
                         </div>
-
-                        <h4 class="text-white mb-1">
-                            @Model.Employee.FullName
-                        </h4>
-
-                        <div class="text-secondary">
-                            @(currentPosting?.Designation?.Value ?? "")
-                        </div>
-
-                        <div class="text-info">
-                            @(currentPosting?.Department?.Name ?? "")
-                        </div>
-
-                        <span class="badge bg-primary mt-3">
-                            Current Employee
-                        </span>
-
                     </div>
 
+                    <div class="profile-field">
+                        <div class="profile-field-label">Designation</div>
+                        <div class="profile-field-value">@(Model.CurrentPosting?.Designation?.Label ?? "-")</div>
+                    </div>
+                    <div class="profile-field">
+                        <div class="profile-field-label">Department</div>
+                        <div class="profile-field-value">@(Model.CurrentPosting?.Department?.Name ?? "-")</div>
+                    </div>
+                    <div class="profile-field">
+                        <div class="profile-field-label">Employee No</div>
+                        <div class="profile-field-value">@Model.Employee.EmployeeNo</div>
+                    </div>
+                    <div class="profile-field">
+                        <div class="profile-field-label">Joining Date</div>
+                        <div class="profile-field-value">@Model.Employee.JoiningDate.ToString("dd MMM yyyy")</div>
+                    </div>
+                    <div class="profile-field">
+                        <div class="profile-field-label">Supervisor</div>
+                        <div class="profile-field-value">
+                            @if (Model.Supervisor != null)
+                            {
+                                <a asp-controller="Employees" asp-action="Details" asp-route-id="@Model.Supervisor.Id">
+                                    @Model.Supervisor.FullName
+                                </a>
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="profile-field profile-field-last">
+                        <div class="profile-field-label">Email</div>
+                        <div class="profile-field-value">@Model.Employee.Email</div>
+                    </div>
+
+                    @if (canViewPostings)
+                    {
+                        <a asp-controller="Postings" asp-action="History" asp-route-employeeId="@Model.Employee.Id" class="profile-action-btn">
+                            <i class="bi bi-briefcase-fill me-2"></i> Postings
+                        </a>
+                    }
                 </div>
-
-                <div class="connector"></div>
-                <div class="my-5"></div>
-
             </div>
 
-            <div class="my-5"></div>
-
-            <h6 class="text-warning fw-bold mb-3">
-                <div class="text-center mb-3">
-
-                    <h6 class="text-warning fw-bold mb-3">
-                        <i class="bi bi-people-fill me-2"></i>
-                        Teammates
-                    </h6>
-
+            <div class="tab-pane fade" id="performance-pane" role="tabpanel">
+                <div class="employee-card text-center py-5">
+                    <i class="bi bi-clipboard-check" style="font-size: 40px; color: var(--accent);"></i>
+                    <p class="text-muted mt-3 mb-0">Performance history for this employee will appear here.</p>
                 </div>
-            </h6>
-            @if (teammates != null && teammates.Any())
-            {
-                <div class="row">
-
-                    @foreach (var mate in teammates)
-                    {
-                        var posting = mate.Postings.FirstOrDefault();
-
-                        <div class="col-md-6 col-lg-4 mb-3">
-
-                            <a asp-action="Details"
-                               asp-route-id="@mate.Id"
-                               class="text-decoration-none">
-
-                                <div class="card hierarchy-card h-100">
-
-                                    <div class="card-body">
-
-                                        <div class="employee-avatar mb-3">
-                                            @mate.FullName.Substring(0, 1).ToUpper()
-                                        </div>
-
-                                        <div class="fw-bold text-white">
-                                            @mate.FullName
-                                        </div>
-
-                                        <small class="text-secondary">
-                                            @(posting?.Designation?.Value ?? "Employee")
-                                        </small>
-
-                                        <div class="text-info small">
-                                            @(posting?.Department?.Name ?? "")
-                                        </div>
-
-                                        <div class="text-end mt-3">
-                                            <small class="text-primary fw-semibold">
-                                                View Profile →
-                                            </small>
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </a>
-
-                        </div>
-                    }
-
-                </div>
-            }
-            else
-            {
-                <p class="text-secondary">
-                    No teammates found.
-                </p>
-            }
-
-            <div class="connector"></div>
-
-            <!-- Team Members -->
-
-            <div>
-
-                <div class="text-muted fw-semibold mb-3">
-                    <div class="text-center mb-3">
-
-                        <h6 class="text-success fw-bold mb-3">
-                            <i class="bi bi-diagram-3-fill me-2"></i>
-                            Direct Reports
-                        </h6>
-
-                    </div>
-                </div>
-
-                @if (teamMembers != null && teamMembers.Any())
-                {
-                    <div class="row">
-
-                        @foreach (var member in teamMembers)
-                        {
-                            var posting = member.Postings.FirstOrDefault();
-
-                            <div class="col-md-6 col-lg-4 mb-3">
-
-                                <a asp-action="Details"
-                                   asp-route-id="@member.Id"
-                                   class="text-decoration-none">
-
-                                    <div class="card hierarchy-card h-100 border-0 shadow-sm">
-
-                                        <div class="card-body d-flex">
-
-                                            <div class="employee-avatar me-3">
-                                                @member.FullName.Substring(0, 1).ToUpper()
-                                            </div>
-
-                                            <div class="flex-grow-1">
-
-                                                <div class="fw-bold text-white">
-                                                    @member.FullName
-                                                </div>
-
-                                                <small class="text-muted">
-                                                    @(posting?.Designation?.Value ?? "Employee")
-                                                </small>
-                                                <div class="text-info small">
-                                                    @(posting?.Department?.Name ?? "")
-                                                </div>
-
-                                                <div class="text-end mt-3">
-                                                    <small class="text-primary fw-semibold">
-                                                        View Profile →
-                                                    </small>
-                                                </div>
-
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-
-                                </a>
-
-                            </div>
-                        }
-
-                    </div>
-                }
-                else
-                {
-                    <p class="text-muted mb-0">
-                        This employee has no direct reports.
-                    </p>
-                }
-
             </div>
 
         </div>
     </div>
+
+    <!-- Right: Team Tree -->
+    <div class="col-lg-8">
+        <partial name="_TeamTree" model="teamTreeModel" />
+    </div>
+
 </div>
+
+<style>
+    .profile-field {
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.08));
+    }
+
+    .profile-field-last {
+        border-bottom: none;
+    }
+
+    .profile-field-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted, #8792a8);
+        margin-bottom: 4px;
+    }
+
+    .profile-field-value {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-primary, #1e2637);
+        line-height: 1.4;
+    }
+
+    .profile-action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 20px;
+        background: var(--accent, #5b8def);
+        color: #fff;
+        border: none;
+        padding: 10px 18px;
+        border-radius: var(--radius-sm, 8px);
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        transition: background .15s ease, transform .15s ease;
+    }
+
+        .profile-action-btn:hover {
+            background: var(--accent-hover, #4674d6);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+    .min-w-0 {
+        min-width: 0;
+    }
+</style>

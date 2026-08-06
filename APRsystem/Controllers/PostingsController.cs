@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
-[Authorize(Policy = Permissions.PostingsManage)]
+
 public class PostingsController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -19,10 +19,10 @@ public class PostingsController : Controller
     }
 
     // GET: POSTINGS
-[HttpGet("Postings/{EmployeeId?}")]    
+    [HttpGet("Postings/{EmployeeId?}")]
     public async Task<IActionResult> Index(int? EmployeeId)
     {
-        
+
         var postingsQuery = _context.Postings
             .Include(p => p.Employee)
             .Include(p => p.Department)
@@ -42,16 +42,19 @@ public class PostingsController : Controller
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (User.IsInRole("Supervisor"))
+            var currentEmployeeForSupCheck = await _context.Employees
+    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            var currentEmployeeId = currentEmployeeForSupCheck?.Id;
+
+            var hasDirectReports = currentEmployeeId != null && await _context.Employees
+                .AnyAsync(e => e.SupervisorId == currentEmployeeId);
+
+            if (hasDirectReports)
             {
-                var supervisorEmployee = await _context.Employees
-                    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
-
-                var supervisorId = supervisorEmployee?.Id;
-
                 postingsQuery = postingsQuery.Where(p =>
                     p.Employee.ApplicationUserId == currentUserId ||
-                    p.SupervisorId == supervisorId);
+                    p.SupervisorId == currentEmployeeId);
             }
             else
             {
@@ -81,20 +84,23 @@ public class PostingsController : Controller
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             bool isSelf = employee.ApplicationUserId == currentUserId;
-            bool isSupervisorOfEmployee = false;
+          
 
-            if (User.IsInRole("Supervisor"))
-            {
-                var supervisorEmployee = await _context.Employees
-                    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+            var currentEmployeeForSupCheck = await _context.Employees
+      .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
-                isSupervisorOfEmployee = supervisorEmployee != null && employee.SupervisorId == supervisorEmployee.Id;
-            }
+            bool isSupervisorOfEmployee = currentEmployeeForSupCheck != null
+                && employee.SupervisorId == currentEmployeeForSupCheck.Id;
 
             if (!isSelf && !isSupervisorOfEmployee)
             {
                 return Forbid();
             }
+            ViewBag.CanInitiateAppraisal = isSupervisorOfEmployee;
+        }
+        if (User.IsInRole("Admin") || User.IsInRole("HR"))
+        {
+            ViewBag.CanInitiateAppraisal = true;
         }
 
         var history = await _context.Postings
@@ -185,8 +191,8 @@ public class PostingsController : Controller
         ModelState.Remove(nameof(Posting.Contract));
         ModelState.Remove(nameof(Posting.Supervisor));
 
-
-
+        // NEW: make sure this posting's dates fall inside its contract's date range
+        await ValidatePostingDatesAgainstContract(posting.ContractId, posting.FromDate, posting.ToDate);
 
         if (!ModelState.IsValid)
         {
@@ -227,7 +233,7 @@ public class PostingsController : Controller
         }
     }
 
-    
+
 
 
     // GET: POSTINGS/Edit/5
@@ -264,6 +270,9 @@ public class PostingsController : Controller
         ModelState.Remove(nameof(Posting.Contract));
         ModelState.Remove(nameof(Posting.Supervisor));
 
+        // NEW: same contract date-range check on edit
+        await ValidatePostingDatesAgainstContract(posting.ContractId, posting.FromDate, posting.ToDate);
+
         if (ModelState.IsValid)
         {
             try
@@ -284,11 +293,11 @@ public class PostingsController : Controller
     }
 
     // GET: POSTINGS/Delete/5
-    [HttpPost("Postings/Delete/{id?}")]
+    [HttpGet("Postings/Delete/{id?}")]
     [Authorize(Policy = Permissions.PostingsManage)]
     public async Task<IActionResult> Delete(int? id)
-   
-    
+
+
     {
         if (id == null) return NotFound();
 
@@ -313,6 +322,7 @@ public class PostingsController : Controller
     [Authorize(Policy = Permissions.PostingsManage)]
     [HttpGet("Postings/Delete/{id?}")]
     [ValidateAntiForgeryToken]
+    
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
         var posting = await _context.Postings.FindAsync(id);
@@ -328,6 +338,42 @@ public class PostingsController : Controller
     private bool PostingExists(int id)
     {
         return _context.Postings.Any(p => p.Id == id);
+    }
+
+    // NEW: shared helper used by both Create and Edit.
+    // Confirms the posting's FromDate/ToDate stay inside its Contract's StartDate/EndDate.
+    // Adds ModelState errors (so they show up on the form) and returns false if invalid.
+    private async Task<bool> ValidatePostingDatesAgainstContract(int contractId, DateTime fromDate, DateTime? toDate)
+    {
+        var contract = await _context.Contracts.FindAsync(contractId);
+        if (contract == null)
+        {
+            ModelState.AddModelError(nameof(Posting.ContractId), "Selected contract not found.");
+            return false;
+        }
+
+        if (fromDate < contract.StartDate)
+        {
+            ModelState.AddModelError(nameof(Posting.FromDate),
+                $"Posting cannot start before the contract's start date ({contract.StartDate:d}).");
+        }
+
+        if (contract.EndDate != null)
+        {
+            if (fromDate > contract.EndDate)
+            {
+                ModelState.AddModelError(nameof(Posting.FromDate),
+                    $"Posting cannot start after the contract's end date ({contract.EndDate:d}).");
+            }
+
+            if (toDate != null && toDate > contract.EndDate)
+            {
+                ModelState.AddModelError(nameof(Posting.ToDate),
+                    $"Posting end date cannot exceed the contract's end date ({contract.EndDate:d}).");
+            }
+        }
+
+        return ModelState.ErrorCount == 0;
     }
 
     private void PopulateDropdowns(Posting? posting = null)

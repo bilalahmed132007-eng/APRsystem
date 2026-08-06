@@ -1,0 +1,364 @@
+@model APRsystem.ViewModels.TeamTreeViewModel
+
+@{
+    string InitialsOf(APRsystem.Models.Employee e)
+    {
+        var parts = (e.FullName ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+        return (parts[0][0].ToString() + parts[^1][0].ToString()).ToUpper();
+    }
+
+    string DesignationOf(APRsystem.Models.Employee e)
+    {
+        var posting = e.Postings?.FirstOrDefault(p => p.ToDate == null);
+        return posting?.Designation?.Label ?? "";
+    }
+
+    // NOTE: GrandSupervisor (the supervisor's own supervisor) needs to be added as a
+    // property on TeamTreeViewModel and populated in the controller — the same way
+    // TeamSupervisor is looked up, just one more hop via TeamSupervisor.SupervisorId.
+    // Until that's wired up, Model.GrandSupervisor will just be null and the tree
+    // renders exactly as it did before (starting from TeamSupervisor).
+}
+
+<div class="dashboard-card team-tree-card">
+    <h4 class="mb-4">
+        <i class="bi bi-diagram-3 me-2"></i>
+        My Team
+    </h4>
+
+    @if (Model.CurrentEmployee == null)
+    {
+        <p class="text-secondary">No employee record linked to this account yet.</p>
+    }
+    else if (Model.TeamSupervisor == null && !Model.Teammates.Any() && !Model.DirectReports.Any())
+    {
+        <p class="text-secondary text-center mb-0">No teammates or direct reports found.</p>
+    }
+    else
+    {
+        <div class="org-tree-scroll">
+            <ul class="org-tree">
+                <li>
+
+                    @* ---------- Level -2: Supervisor's Supervisor (if any) ---------- *@
+                    @if (Model.GrandSupervisor != null)
+                    {
+                        <a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@Model.GrandSupervisor.Id">
+                            <div class="org-avatar">@InitialsOf(Model.GrandSupervisor)</div>
+                            <div class="org-info">
+                                <div class="org-name">@Model.GrandSupervisor.FullName</div>
+                                <div class="org-role">@DesignationOf(Model.GrandSupervisor)</div>
+                            </div>
+                        </a>
+
+                        <ul>
+                            <li>
+                                @* ---------- Level -1: Supervisor ---------- *@
+                                <a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@Model.TeamSupervisor!.Id">
+                                    <div class="org-avatar">@InitialsOf(Model.TeamSupervisor)</div>
+                                    <div class="org-info">
+                                        <div class="org-name">@Model.TeamSupervisor.FullName</div>
+                                        <div class="org-role">Supervisor</div>
+                                    </div>
+                                </a>
+
+                                <ul>
+                                    @foreach (var mate in Model.Teammates)
+                                    {
+                                        <li>
+                                            <a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@mate.Id">
+                                                <div class="org-avatar">@InitialsOf(mate)</div>
+                                                <div class="org-info">
+                                                    <div class="org-name">@mate.FullName</div>
+                                                    <div class="org-role">@DesignationOf(mate)</div>
+                                                </div>
+                                            </a>
+                                        </li>
+                                    }
+
+                                    <li>
+                                        <div class="org-card org-card-self">
+                                            <div class="org-avatar org-avatar-self">@InitialsOf(Model.CurrentEmployee)</div>
+                                            <div class="org-info">
+                                                <div class="org-name">@Model.CurrentEmployee.FullName</div>
+                                                <div class="org-role">You · @DesignationOf(Model.CurrentEmployee)</div>
+                                            </div>
+                                        </div>
+
+                                        @if (Model.DirectReports.Any())
+                                        {
+                                            <ul>
+                                                @foreach (var report in Model.DirectReports)
+                                                {
+                                                    <li>
+                                                        <a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@report.Id">
+                                                            <div class="org-avatar">@InitialsOf(report)</div>
+                                                            <div class="org-info">
+                                                                <div class="org-name">@report.FullName</div>
+                                                                <div class="org-role">@DesignationOf(report)</div>
+                                                            </div>
+                                                        </a>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        }
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    }
+                    else if (Model.TeamSupervisor != null)
+                    {
+                        @* ---------- No GrandSupervisor: Supervisor is the root ---------- *@
+                        <a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@Model.TeamSupervisor.Id">
+                            <div class="org-avatar">@InitialsOf(Model.TeamSupervisor)</div>
+                            <div class="org-info">
+                                <div class="org-name">@Model.TeamSupervisor.FullName</div>
+                                <div class="org-role">Supervisor</div>
+                            </div>
+                        </a>
+
+                        <ul>
+                            @foreach (var mate in Model.Teammates)
+                            {
+                                <li>
+                                    <a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@mate.Id">
+                                        <div class="org-avatar">@InitialsOf(mate)</div>
+                                        <div class="org-info">
+                                            <div class="org-name">@mate.FullName</div>
+                                            <div class="org-role">@DesignationOf(mate)</div>
+                                        </div>
+                                    </a>
+                                </li>
+                            }
+
+                            <li>
+                                <div class="org-card org-card-self">
+                                    <div class="org-avatar org-avatar-self">@InitialsOf(Model.CurrentEmployee)</div>
+                                    <div class="org-info">
+                                        <div class="org-name">@Model.CurrentEmployee.FullName</div>
+                                        <div class="org-role">You · @DesignationOf(Model.CurrentEmployee)</div>
+                                    </div>
+                                </div>
+
+                                @if (Model.DirectReports.Any())
+                                {
+                                    <ul>
+                                        @foreach (var report in Model.DirectReports)
+                                        {
+                                            <li>
+                                                <a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@report.Id">
+                                                    <div class="org-avatar">@InitialsOf(report)</div>
+                                                    <div class="org-info">
+                                                        <div class="org-name">@report.FullName</div>
+                                                        <div class="org-role">@DesignationOf(report)</div>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </li>
+                        </ul>
+                    }
+                    else
+                    {
+                        @* ---------- No supervisor at all: current employee is the root ---------- *@
+                        <div class="org-card org-card-self">
+                            <div class="org-avatar org-avatar-self">@InitialsOf(Model.CurrentEmployee)</div>
+                            <div class="org-info">
+                                <div class="org-name">@Model.CurrentEmployee.FullName</div>
+                                <div class="org-role">You · @DesignationOf(Model.CurrentEmployee)</div>
+                            </div>
+                        </div>
+
+                        @if (Model.DirectReports.Any())
+                        {
+                            <ul>
+                                @foreach (var report in Model.DirectReports)
+                                {
+                                    <li>
+                                        <a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@report.Id">
+                                            <div class="org-avatar">@InitialsOf(report)</div>
+                                            <div class="org-info">
+                                                <div class="org-name">@report.FullName</div>
+                                                <div class="org-role">@DesignationOf(report)</div>
+                                            </div>
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    }
+
+                </li>
+            </ul>
+        </div>
+    }
+</div>
+
+<style>
+    .team-tree-card {
+        font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+    }
+
+    .org-tree-scroll {
+        overflow-x: auto;
+        padding: 10px 0 4px 0;
+    }
+
+    .org-tree,
+    .org-tree ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        position: relative;
+    }
+
+        .org-tree ul {
+            padding-top: 24px;
+        }
+
+        .org-tree li {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            padding: 0 12px;
+        }
+
+        .org-tree ul > li {
+            padding-top: 24px;
+        }
+
+            .org-tree ul > li::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 50%;
+                height: 24px;
+                border-top: 2px solid #C7C7C7;
+            }
+
+            .org-tree ul > li::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 50%;
+                height: 24px;
+                border-top: 2px solid #C7C7C7;
+                border-left: 2px solid #C7C7C7;
+            }
+
+            .org-tree ul > li:first-child::before {
+                border-top: none;
+            }
+
+            .org-tree ul > li:last-child::after {
+                border-top: none;
+                border-left: none;
+            }
+
+            .org-tree ul > li:only-child::before,
+            .org-tree ul > li:only-child::after {
+                display: none;
+            }
+
+            .org-tree ul > li:only-child {
+                padding-top: 0;
+            }
+
+        /* FIX: this stem draws the vertical line from a card down into the gap above its
+               children row. It must start at the TOP of the children <ul> (top: 0) and extend
+               DOWN into that ul's own padding-top (which is where the visual gap actually is).
+               The old version used top:-24px, which drew the line 24px ABOVE the ul's top edge
+               instead — since the ul sits flush against the card above it (flex column, no gap
+               between them), that put the line straight through the card/text above it instead
+               of in the empty space below it. */
+        .org-tree li > ul::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 0;
+            height: 24px;
+            border-left: 2px solid #C7C7C7;
+        }
+
+    .org-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: inherit;
+        background: #ffffff;
+        border: 1px solid #E1E1E1;
+        border-left: 4px solid #6264A7;
+        border-radius: 6px;
+        padding: 12px 18px 12px 14px;
+        min-width: 220px;
+        max-width: 260px;
+        transition: background 0.12s ease, border-color 0.12s ease;
+    }
+
+        .org-card:hover {
+            background: #F5F5F5;
+            color: inherit;
+        }
+
+    .org-card-self {
+        border-left-color: #464775;
+        background: #EBEBF5;
+        cursor: default;
+    }
+
+        .org-card-self:hover {
+            background: #EBEBF5;
+        }
+
+    .org-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #fff;
+        background: #6264A7;
+    }
+
+    .org-avatar-self {
+        background: #464775;
+    }
+
+    .org-info {
+        min-width: 0;
+        text-align: left;
+    }
+
+    .org-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #242424;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .org-role {
+        font-size: 0.82rem;
+        color: #616161;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+</style>

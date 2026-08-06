@@ -32,7 +32,7 @@ public class EmployeesController : Controller
             .Include(e => e.Supervisor)
             .Include(e => e.Postings.Where(p => p.ToDate == null))
                 .ThenInclude(p => p.Department)
-            .AsQueryable(); 
+            .AsQueryable();
 
         if (User.IsInRole("Admin") || User.IsInRole("HR"))
         {
@@ -42,19 +42,23 @@ public class EmployeesController : Controller
         {
             var currentUserId = _userManager.GetUserId(User);
 
-            if (User.IsInRole("Supervisor"))
+            var currentEmployee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            var currentEmployeeId = currentEmployee?.Id;
+
+            // "Supervisor" is no longer a role — it's determined by whether anyone's
+            // SupervisorId points at this employee.
+            var hasDirectReports = currentEmployeeId != null && await _context.Employees
+                .AnyAsync(e => e.SupervisorId == currentEmployeeId);
+
+            ViewBag.SupervisorId = currentEmployeeId;
+
+            if (hasDirectReports)
             {
-                var supervisorEmployee = await _context.Employees
-    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
-
-                var supervisorId = supervisorEmployee?.Id;
-
-                // Pass supervisor's Employee Id to the view
-                ViewBag.SupervisorId = supervisorId;
-
                 employeesQuery = employeesQuery.Where(e =>
                     e.ApplicationUserId == currentUserId ||
-                    e.SupervisorId == supervisorId);
+                    e.SupervisorId == currentEmployeeId);
             }
             else
             {
@@ -66,6 +70,8 @@ public class EmployeesController : Controller
     }
 
     // GET: EMPLOYEES/Details/5
+    // Visibility: Admin/HR (anyone), self, my supervisor, my teammates (same supervisor),
+    // and my direct reports — i.e. anyone within one level of the caller's own team tree.
     public async Task<IActionResult> Details(int? id)
     {
         if (id == null)
@@ -116,6 +122,12 @@ public class EmployeesController : Controller
         }
 
         ViewBag.Teammates = teammates;
+        Employee? grandSupervisor = null;
+        if (employee.Supervisor?.SupervisorId != null)
+        {
+            grandSupervisor = await _context.Employees
+                .FirstOrDefaultAsync(e => e.Id == employee.Supervisor.SupervisorId);
+        }
 
         if (User.IsInRole("Admin") || User.IsInRole("HR"))
         {
@@ -125,7 +137,9 @@ public class EmployeesController : Controller
                 CurrentPosting = currentPosting,
                 Supervisor = employee.Supervisor,
                 Teammates = teammates,
-                DirectReports = teamMembers
+                GrandSupervisor = grandSupervisor,
+                DirectReports = teamMembers,
+                CanViewPostings = true
             };
 
             return View(vm);
@@ -133,7 +147,22 @@ public class EmployeesController : Controller
 
         var currentUserId = _userManager.GetUserId(User);
 
-        if (employee.ApplicationUserId == currentUserId)
+        var currentEmployee = await _context.Employees
+            .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+        if (currentEmployee == null)
+        {
+            return Forbid();
+        }
+
+        var isSelf = employee.Id == currentEmployee.Id;
+        var isMySupervisor = currentEmployee.SupervisorId == employee.Id;
+        var isMyDirectReport = employee.SupervisorId == currentEmployee.Id;
+        var isMyTeammate = employee.SupervisorId != null
+                            && employee.SupervisorId == currentEmployee.SupervisorId;
+        var canViewPostings = isSelf || isMyDirectReport;
+
+        if (isSelf || isMySupervisor || isMyDirectReport || isMyTeammate)
         {
             var vm = new EmployeeDetailsViewModel
             {
@@ -141,30 +170,13 @@ public class EmployeesController : Controller
                 CurrentPosting = currentPosting,
                 Supervisor = employee.Supervisor,
                 Teammates = teammates,
-                DirectReports = teamMembers
+                GrandSupervisor = grandSupervisor,
+                DirectReports = teamMembers,
+                CanViewPostings = canViewPostings
+
             };
 
             return View(vm);
-        }
-
-        if (User.IsInRole("Supervisor"))
-        {
-            var supervisorEmployee = await _context.Employees
-                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
-
-            if (supervisorEmployee != null && employee.SupervisorId == supervisorEmployee.Id)
-            {
-                var vm = new EmployeeDetailsViewModel
-                {
-                    Employee = employee,
-                    CurrentPosting = currentPosting,
-                    Supervisor = employee.Supervisor,
-                    Teammates = teammates,
-                    DirectReports = teamMembers
-                };
-
-                return View(vm);
-            }
         }
 
         return Forbid();
@@ -226,8 +238,11 @@ public class EmployeesController : Controller
                 Email = model.Email,
                 Phone = model.Phone,
                 JoiningDate = model.JoiningDate,
+
                 IsActive = model.IsActive,
-                ApplicationUserId = user.Id
+                ApplicationUserId = user.Id,
+                SupervisorId = model.SupervisorId
+
             };
 
             _context.Employees.Add(employee);
@@ -265,7 +280,7 @@ public class EmployeesController : Controller
 
             return RedirectToAction(nameof(Index));
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
 
@@ -278,11 +293,7 @@ public class EmployeesController : Controller
                 }
             }
 
-            ModelState.AddModelError("", $"DEBUG ERROR: {ex.Message}");
-            if (ex.InnerException != null)
-            {
-                ModelState.AddModelError("", $"INNER: {ex.InnerException.Message}");
-            }
+            ModelState.AddModelError("", "An error occurred while creating the employee. Please try again.");
 
             PopulateDropdowns();
             return View(model);
@@ -395,7 +406,7 @@ public class EmployeesController : Controller
     {
         ViewBag.DepartmentId = new SelectList(_context.Departments, "Id", "Name");
         ViewBag.DesignationId = new SelectList(
-            _context.Lookups.Where(l => l.Category == "Designation"), "Id", "Value");
+            _context.Lookups.Where(l => l.Category == "Designation"), "Id", "Label");
         ViewBag.LocationId = new SelectList(_context.Locations, "Id", "Name");
         ViewBag.SupervisorId = new SelectList(_context.Employees, "Id", "FullName", employee?.SupervisorId);
         ViewBag.RoleId = new SelectList(_roleManager.Roles.OrderBy(r => r.Name), "Name", "Name");

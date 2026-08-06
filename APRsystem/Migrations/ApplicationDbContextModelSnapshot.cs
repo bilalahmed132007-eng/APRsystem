@@ -42,9 +42,6 @@ namespace APRsystem.Migrations
                     b.Property<DateTime>("FromDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("GeneralComment")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<decimal>("GeneralMaxScore")
                         .HasColumnType("decimal(6,2)");
 
@@ -87,7 +84,10 @@ namespace APRsystem.Migrations
                     b.Property<bool>("SelfAssessmentEnabled")
                         .HasColumnType("bit");
 
-                    b.Property<string>("SpecificComment")
+                    b.Property<string>("SelfGeneralComment")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SelfSpecificComment")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("SpecificMaxScore")
@@ -99,8 +99,14 @@ namespace APRsystem.Migrations
                     b.Property<int>("StatusId")
                         .HasColumnType("int");
 
+                    b.Property<string>("SupervisorGeneralComment")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("SupervisorId")
                         .HasColumnType("int");
+
+                    b.Property<string>("SupervisorSpecificComment")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("ToDate")
                         .HasColumnType("datetime2");
@@ -188,6 +194,12 @@ namespace APRsystem.Migrations
 
                     b.Property<int>("Section")
                         .HasColumnType("int");
+
+                    b.Property<int>("SelfRating")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SelfScore")
+                        .HasColumnType("decimal(6,2)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -515,6 +527,37 @@ namespace APRsystem.Migrations
                     b.ToTable("Lookups");
                 });
 
+            modelBuilder.Entity("APRsystem.Models.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RecipientEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Url")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientEmployeeId");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("APRsystem.Models.Posting", b =>
                 {
                     b.Property<int>("Id")
@@ -830,13 +873,12 @@ namespace APRsystem.Migrations
 
                     b.HasOne("APRsystem.Models.Lookup", "NextStage")
                         .WithMany()
-                        .HasForeignKey("NextStageId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("NextStageId");
 
                     b.HasOne("APRsystem.Models.Lookup", "Stage")
                         .WithMany()
                         .HasForeignKey("StageId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Appraisal");
@@ -884,6 +926,17 @@ namespace APRsystem.Migrations
                     b.Navigation("ApplicationUser");
 
                     b.Navigation("Supervisor");
+                });
+
+            modelBuilder.Entity("APRsystem.Models.Notification", b =>
+                {
+                    b.HasOne("APRsystem.Models.Employee", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Recipient");
                 });
 
             modelBuilder.Entity("APRsystem.Models.Posting", b =>

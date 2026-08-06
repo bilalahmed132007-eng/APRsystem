@@ -1,0 +1,235 @@
+@page
+@model LoginModel
+
+@{
+    ViewData["Title"] = "Log in";
+    Layout = "/Views/Shared/_AuthLayout.cshtml";
+}
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <img src="~/images/ppaf-logo.png" alt="PPAF logo" class="auth-logo-img" />
+            <h3 class="mb-1">Welcome back</h3>
+            <p class="text-muted mb-0">Sign in to APR System</p>
+        </div>
+
+        <form id="account" method="post">
+            <div asp-validation-summary="ModelOnly" class="auth-error-summary" role="alert"></div>
+
+            <div class="auth-field">
+                <label asp-for="Input.Email" class="auth-label"></label>
+                <input asp-for="Input.Email" class="auth-input" autocomplete="username" placeholder="you@company.com" />
+                <span asp-validation-for="Input.Email" class="auth-field-error"></span>
+            </div>
+
+            <div class="auth-field">
+                <label asp-for="Input.Password" class="auth-label"></label>
+                <input asp-for="Input.Password" class="auth-input" autocomplete="current-password" placeholder="••••••••" />
+                <span asp-validation-for="Input.Password" class="auth-field-error"></span>
+            </div>
+
+            <div class="auth-row">
+                <div class="form-check">
+                    <input class="form-check-input" asp-for="Input.RememberMe" />
+                    <label asp-for="Input.RememberMe" class="form-check-label small text-muted"></label>
+                </div>
+                <a id="forgot-password" asp-page="./ForgotPassword" class="auth-link small">Forgot password?</a>
+            </div>
+
+            <button id="login-submit" type="submit" class="auth-submit-btn">
+                Log in
+            </button>
+
+            <div class="auth-links-footer">
+                <p class="text-center text-muted small mb-1">
+                    New here? <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl" class="auth-link">Register as a new user</a>
+                </p>
+                <p class="text-center text-muted small mb-0">
+                    <a asp-page="./ResendEmailConfirmation" class="auth-link">Resend email confirmation</a>
+                </p>
+            </div>
+        </form>
+
+        @{
+            if ((Model.ExternalLogins?.Count ?? 0) > 0)
+            {
+                <div class="auth-divider"><span>or continue with</span></div>
+
+                <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+                    <div class="d-grid gap-2">
+                        @foreach (var provider in Model.ExternalLogins!)
+                        {
+                            <button type="submit" class="btn auth-external-btn" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">
+                                @provider.DisplayName
+                            </button>
+                        }
+                    </div>
+                </form>
+            }
+        }
+    </div>
+</div>
+
+<style>
+    .auth-wrapper {
+        min-height: calc(100vh - 160px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 16px;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 400px;
+        background: var(--card-bg, #fff);
+        border-radius: var(--radius-md, 14px);
+        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+        padding: 40px 36px;
+    }
+
+    .auth-header {
+        text-align: center;
+        margin-bottom: 28px;
+    }
+
+    .auth-body {
+        background: #f5f7fb;
+    }
+
+    .auth-logo-img {
+        height: 48px;
+        margin-bottom: 16px;
+    }
+
+    .auth-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 16px;
+    }
+
+    .auth-field {
+        margin-bottom: 18px;
+    }
+
+    .auth-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted, #8792a8);
+        margin-bottom: 6px;
+    }
+
+    .auth-input {
+        width: 100%;
+        padding: 11px 14px;
+        border-radius: var(--radius-sm, 8px);
+        border: 1px solid var(--border-subtle, rgba(15,23,42,0.12));
+        font-size: 15px;
+        color: var(--text-primary, #1e2637);
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--accent, #5b8def);
+            box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.15);
+        }
+
+    .auth-field-error {
+        display: block;
+        font-size: 12px;
+        color: #e0555f;
+        margin-top: 4px;
+    }
+
+    .auth-error-summary {
+        color: #e0555f;
+        font-size: 13px;
+        margin-bottom: 16px;
+    }
+
+        .auth-error-summary:empty {
+            display: none;
+        }
+
+    .auth-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 22px;
+    }
+
+    .auth-link {
+        color: var(--accent, #5b8def);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+        .auth-link:hover {
+            color: var(--accent-hover, #4674d6);
+            text-decoration: underline;
+        }
+
+    .auth-submit-btn {
+        width: 100%;
+        background: var(--accent, #5b8def);
+        color: #fff;
+        border: none;
+        padding: 12px 18px;
+        border-radius: var(--radius-sm, 8px);
+        font-weight: 600;
+        font-size: 15px;
+        transition: background .15s ease, transform .15s ease;
+    }
+
+        .auth-submit-btn:hover {
+            background: var(--accent-hover, #4674d6);
+            transform: translateY(-1px);
+        }
+
+    .auth-links-footer {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-subtle, rgba(15,23,42,0.08));
+    }
+
+    .auth-divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        color: var(--text-muted, #8792a8);
+        font-size: 12px;
+        margin: 24px 0 16px;
+    }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));
+        }
+
+        .auth-divider span {
+            padding: 0 12px;
+        }
+
+    .auth-external-btn {
+        border: 1px solid var(--border-subtle, rgba(15,23,42,0.12));
+        border-radius: var(--radius-sm, 8px);
+        padding: 10px;
+        font-weight: 600;
+        background: #fff;
+    }
+
+        .auth-external-btn:hover {
+            background: #f5f7fb;
+        }
+</style>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

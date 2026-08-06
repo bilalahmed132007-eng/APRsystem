@@ -23,7 +23,16 @@ namespace APRsystem.Models
         [Column(TypeName = "decimal(5,2)")]
         public decimal Weight { get; set; }
 
-        // Rating: 0-4, entered by supervisor
+        // Employee's self-assessment rating: 0-4. Entered by the employee during SelfAssessment.
+        // Never overwritten by the supervisor.
+        public int SelfRating { get; set; }
+
+        // SelfScore = Weight * SelfRating (calculated, stored for convenience)
+        [Column(TypeName = "decimal(6,2)")]
+        public decimal SelfScore { get; set; }
+
+        // Official rating: 0-4, entered by the supervisor. This is what totals/percentage/rank are
+        // calculated from.
         public int Rating { get; set; }
 
         // Score = Weight * Rating (calculated, stored for convenience)

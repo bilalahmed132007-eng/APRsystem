@@ -23,8 +23,7 @@ namespace APRsystem.ViewModels
 
         [Required]
         [Display(Name = "Joining Date")]
-        public DateTime JoiningDate { get; set; }
-
+        public DateTime JoiningDate { get; set; } = DateTime.Today;
         public bool IsActive { get; set; } = true;
 
         [Required]
@@ -52,7 +51,7 @@ namespace APRsystem.ViewModels
 
         [Required]
         [Display(Name = "Contract Start Date")]
-        public DateTime ContractStartDate { get; set; }
+        public DateTime ContractStartDate { get; set; } = DateTime.Today;
 
         [Display(Name = "Contract End Date")]
         public DateTime? ContractEndDate { get; set; }
@@ -77,7 +76,7 @@ namespace APRsystem.ViewModels
 
         [Required]
         [Display(Name = "Posting From Date")]
-        public DateTime PostingFromDate { get; set; }
+        public DateTime PostingFromDate { get; set; } = DateTime.Today;
 
         public int? SupervisorId { get; set; }
         public List<KPI> KPIs { get; set; } = new();

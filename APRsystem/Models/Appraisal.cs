@@ -25,7 +25,7 @@ namespace APRsystem.Models
         [Column(TypeName = "decimal(6,2)")]
         public decimal GeneralMaxScore { get; set; }
 
-        public string? GeneralComment { get; set; }
+        
 
         // Posting-Specific KPI section
         [Column(TypeName = "decimal(6,2)")]
@@ -34,7 +34,15 @@ namespace APRsystem.Models
         [Column(TypeName = "decimal(6,2)")]
         public decimal SpecificMaxScore { get; set; }
 
-        public string? SpecificComment { get; set; }
+        public string? SelfGeneralComment { get; set; }
+        public string? SelfSpecificComment { get; set; }
+
+        public string? SupervisorGeneralComment { get; set; }
+        public string? SupervisorSpecificComment { get; set; }
+
+        public string? HRRemarks { get; set; }
+
+        public string? ReviewerComments { get; set; }
 
         // Combined
         [Column(TypeName = "decimal(6,2)")]
@@ -56,14 +64,14 @@ namespace APRsystem.Models
         public int? ReviewerId { get; set; }
         public Employee? Reviewer { get; set; }
 
-        public string? ReviewerComments { get; set; }
+       
         public DateTime? ReviewedOn { get; set; }
         // Section 6: Performance Appraisal Ranking (Supervisor only, hidden from employee)
         public string? RecommendationText { get; set; }
         public string? RecommendedRank { get; set; }   // OS, AE, ME, BE, NI
 
         // Section 7: Final Ranking (HR + Final Reviewer)
-        public string? HRRemarks { get; set; }
+     
         public string? FinalRank { get; set; }         // OS, AE, ME, BE, NI
         public string? ActionRequired { get; set; }
         public bool SelfAssessmentEnabled { get; set; } = false;

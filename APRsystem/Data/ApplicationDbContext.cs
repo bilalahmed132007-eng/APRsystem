@@ -20,7 +20,7 @@ namespace APRsystem.Data
         {
             _httpContextAccessor = httpContextAccessor;
         }
-       
+
         public DbSet<Workflow> Workflows { get; set; }
         public DbSet<Contract> Contracts { get; set; }
         public DbSet<KPI> KPIs { get; set; }
@@ -34,6 +34,7 @@ namespace APRsystem.Data
         public DbSet<Appraisal> Appraisals { get; set; }
         public DbSet<AppraisalKPI> AppraisalKPIs { get; set; }
         public DbSet<AppraisalHistory> AppraisalHistories { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
         protected override void OnModelCreating(ModelBuilder builder)
         {
 
@@ -160,18 +161,21 @@ namespace APRsystem.Data
     .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<AppraisalHistory>()
-                .HasOne(h => h.Stage)
+                .HasOne(h => h.Appraisal)
+                .WithMany(a => a.History)
+                .HasForeignKey(h => h.AppraisalId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Notification -> Recipient (Employee)
+            builder.Entity<Notification>()
+                .HasOne(n => n.Recipient)
                 .WithMany()
-                .HasForeignKey(h => h.StageId)
+                .HasForeignKey(n => n.RecipientEmployeeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.Entity<AppraisalHistory>()
-                .HasOne(h => h.NextStage)
-                .WithMany()
-                .HasForeignKey(h => h.NextStageId)
-                .OnDelete(DeleteBehavior.Restrict);
+
         }
-            // Entities we never want to audit (avoids noise + avoids Identity table clutter)
+        // Entities we never want to audit (avoids noise + avoids Identity table clutter)
         private static readonly HashSet<string> ExcludedEntities = new()
         {
             nameof(AuditLog),
@@ -292,5 +296,3 @@ namespace APRsystem.Data
         }
     }
 }
-        
-    

@@ -1,0 +1,77 @@
+﻿@model APRsystem.Models.Contract
+
+@{
+    ViewData["Title"] = "Contract Details";
+    var isExpired = Model.EndDate != null && Model.EndDate < DateTime.Today;
+}
+
+<h1>Contract Details</h1>
+
+<dl class="row">
+    <dt class="col-sm-3">Employee</dt>
+    <dd class="col-sm-9">@Model.Employee?.FullName</dd>
+
+    <dt class="col-sm-3">Contract Number</dt>
+    <dd class="col-sm-9">@Model.ContractNumber</dd>
+
+    <dt class="col-sm-3">Type</dt>
+    <dd class="col-sm-9">@Model.Type</dd>
+
+    <dt class="col-sm-3">Start Date</dt>
+    <dd class="col-sm-9">@Model.StartDate.ToString("d")</dd>
+
+    <dt class="col-sm-3">End Date</dt>
+    <dd class="col-sm-9">@(Model.EndDate != null ? Model.EndDate.Value.ToString("d") : "— (Permanent)")</dd>
+
+    <dt class="col-sm-3">Status</dt>
+    <dd class="col-sm-9">
+        @if (!Model.IsActive)
+        {
+            <span class="badge bg-secondary">Inactive</span>
+        }
+        else if (isExpired)
+        {
+            <span class="badge bg-danger">Expired</span>
+        }
+        else
+        {
+            <span class="badge bg-success">Active</span>
+        }
+    </dd>
+</dl>
+
+<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Renew / Edit</a>
+<a asp-action="Index" class="btn btn-secondary">Back to List</a>
+
+<hr />
+
+<h4>Postings under this Contract</h4>
+
+@if (Model.Postings != null && Model.Postings.Any())
+{
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr>
+                <th>Department</th>
+                <th>Designation</th>
+                <th>From</th>
+                <th>To</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Model.Postings.OrderByDescending(p => p.FromDate))
+            {
+                <tr>
+                    <td>@p.Department?.Name</td>
+                    <td>@p.Designation?.Value</td>
+                    <td>@p.FromDate.ToString("d")</td>
+                    <td>@(p.ToDate != null ? p.ToDate.Value.ToString("d") : "Present")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p class="text-muted">No postings recorded under this contract yet.</p>
+}

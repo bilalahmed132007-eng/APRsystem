@@ -30,21 +30,16 @@ namespace APRsystem.Controllers
         public async Task<IActionResult> Index()
         {
             var isAdminOrHR = User.IsInRole("Admin") || User.IsInRole("HR");
-            var isSupervisor = User.IsInRole("Supervisor");
+            var currentEmployee = await GetCurrentEmployeeAsync();
+
+            var isSupervisor = currentEmployee != null && await _context.Employees
+                .AnyAsync(e => e.SupervisorId == currentEmployee.Id);
 
             var model = new DashboardViewModel
             {
                 IsAdminOrHR = isAdminOrHR,
                 IsSupervisor = isSupervisor
             };
-            if (!isAdminOrHR && !isSupervisor)
-            {
-                var currentUserId = _userManager.GetUserId(User);
-                var myEmployee = await _context.Employees
-                    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
-
-                ViewBag.CurrentEmployeeId = myEmployee?.Id;
-            }
 
             if (isAdminOrHR)
             {
@@ -56,24 +51,95 @@ namespace APRsystem.Controllers
                 model.DepartmentCount = await _context.Departments.CountAsync();
                 model.LookupCount = await _context.Lookups.CountAsync();
             }
-            else if (isSupervisor)
+            else
             {
-                // Scoped to their team
-                var currentUserId = _userManager.GetUserId(User);
-                var supervisorEmployee = await _context.Employees
-                    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+                ViewBag.CurrentEmployeeId = currentEmployee?.Id;
 
-                var supervisorId = supervisorEmployee?.Id;
+                if (currentEmployee != null)
+                {
+                    var teamTree = await BuildTeamTreeAsync(currentEmployee);
+                    model.TeamTree = teamTree;
 
-                model.EmployeeCount = await _context.Employees
-                    .CountAsync(e => e.SupervisorId == supervisorId);
-
-                model.PostingCount = await _context.Postings
-                    .CountAsync(p => p.SupervisorId == supervisorId);
+                    if (isSupervisor)
+                    {
+                        // Team stats scoped to this supervisor's direct reports
+                        model.EmployeeCount = teamTree.DirectReports.Count;
+                        model.PostingCount = await _context.Postings
+                            .CountAsync(p => p.SupervisorId == currentEmployee.Id);
+                    }
+                }
             }
-            // Regular employees get no stats — just quick links (handled in view)
 
             return View(model);
+        }
+
+        // GET: Home/Team — dedicated full-page view of the current user's team tree
+        public async Task<IActionResult> Team()
+        {
+            var currentEmployee = await GetCurrentEmployeeAsync();
+
+            if (currentEmployee == null)
+            {
+                return Forbid();
+            }
+
+            var teamTree = await BuildTeamTreeAsync(currentEmployee);
+            return View(teamTree);
+        }
+
+        // Looks up the Employee record linked to the logged-in account, with the
+        // includes needed to render designation/department on the tree cards.
+        private async Task<Employee?> GetCurrentEmployeeAsync()
+        {
+            var currentUserId = _userManager.GetUserId(User);
+
+            return await _context.Employees
+                .Include(e => e.ApplicationUser)
+                .Include(e => e.Supervisor)
+                .Include(e => e.Postings.Where(p => p.ToDate == null))
+                    .ThenInclude(p => p.Designation)
+                .Include(e => e.Postings.Where(p => p.ToDate == null))
+                    .ThenInclude(p => p.Department)
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+        }
+
+        // Builds Supervisor, GrandSupervisor, Teammates, and DirectReports for a given
+        // employee. Shared by Index() (dashboard preview) and Team() (full page) so the
+        // two never drift out of sync.
+        private async Task<TeamTreeViewModel> BuildTeamTreeAsync(Employee currentEmployee)
+        {
+            var teamTree = new TeamTreeViewModel
+            {
+                CurrentEmployee = currentEmployee,
+                TeamSupervisor = currentEmployee.Supervisor
+            };
+
+            if (currentEmployee.SupervisorId != null)
+            {
+                teamTree.Teammates = await _context.Employees
+                    .Include(e => e.Postings.Where(p => p.ToDate == null))
+                        .ThenInclude(p => p.Designation)
+                    .Where(e => e.SupervisorId == currentEmployee.SupervisorId
+                             && e.Id != currentEmployee.Id)
+                    .ToListAsync();
+            }
+
+            teamTree.DirectReports = await _context.Employees
+                .Include(e => e.Postings.Where(p => p.ToDate == null))
+                    .ThenInclude(p => p.Designation)
+                .Where(e => e.SupervisorId == currentEmployee.Id)
+                .ToListAsync();
+
+            // Supervisor's own supervisor — one hop further than the Include chain above covers.
+            if (currentEmployee.Supervisor?.SupervisorId != null)
+            {
+                teamTree.GrandSupervisor = await _context.Employees
+                    .Include(e => e.Postings.Where(p => p.ToDate == null))
+                        .ThenInclude(p => p.Designation)
+                    .FirstOrDefaultAsync(e => e.Id == currentEmployee.Supervisor.SupervisorId);
+            }
+
+            return teamTree;
         }
 
         public IActionResult Privacy()
