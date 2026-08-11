@@ -130,6 +130,10 @@ namespace APRsystem.Controllers
                 .Where(e => e.SupervisorId == currentEmployee.Id)
                 .ToListAsync();
 
+            // Full downline (direct reports + their reports + ...), built in one bulk
+            // fetch instead of one query per level.
+            teamTree.Subordinates = await BuildSubordinateSubtreeAsync(currentEmployee.Id);
+
             // Supervisor's own supervisor — one hop further than the Include chain above covers.
             if (currentEmployee.Supervisor?.SupervisorId != null)
             {
@@ -140,6 +144,51 @@ namespace APRsystem.Controllers
             }
 
             return teamTree;
+        }
+
+        // Loads every employee once, groups by SupervisorId in memory, then walks the
+        // chain recursively from rootEmployeeId. This is O(1) queries regardless of
+        // how many levels deep the hierarchy goes.
+        private async Task<List<TeamNode>> BuildSubordinateSubtreeAsync(int rootEmployeeId)
+        {
+            var allEmployees = await _context.Employees
+                .Include(e => e.Postings.Where(p => p.ToDate == null))
+                    .ThenInclude(p => p.Designation)
+                .ToListAsync();
+
+            var bySupervisor = allEmployees
+                .Where(e => e.SupervisorId != null)
+                .GroupBy(e => e.SupervisorId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            List<TeamNode> BuildChildren(int supervisorId, HashSet<int> visited)
+            {
+                if (!bySupervisor.TryGetValue(supervisorId, out var directReports))
+                {
+                    return new List<TeamNode>();
+                }
+
+                var nodes = new List<TeamNode>();
+                foreach (var report in directReports)
+                {
+                    // Guards against a corrupted SupervisorId chain forming a cycle,
+                    // which would otherwise recurse forever.
+                    if (!visited.Add(report.Id))
+                    {
+                        continue;
+                    }
+
+                    nodes.Add(new TeamNode
+                    {
+                        Employee = report,
+                        Children = BuildChildren(report.Id, visited)
+                    });
+                }
+
+                return nodes;
+            }
+
+            return BuildChildren(rootEmployeeId, new HashSet<int> { rootEmployeeId });
         }
 
         public IActionResult Privacy()

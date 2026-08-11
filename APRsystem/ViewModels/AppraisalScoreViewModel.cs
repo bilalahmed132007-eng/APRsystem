@@ -8,6 +8,7 @@ namespace APRsystem.ViewModels
         public string EmployeeName { get; set; } = string.Empty;
         public DateTime FromDate { get; set; }
         public DateTime ToDate { get; set; }
+        public int EmployeeId { get; set; }
 
         public List<AppraisalKPI> GeneralKPIs { get; set; } = new();
         public string? GeneralComment { get; set; }

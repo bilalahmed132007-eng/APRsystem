@@ -30,7 +30,7 @@ public class EmployeesController : Controller
     {
         var employeesQuery = _context.Employees
             .Include(e => e.Supervisor)
-            .Include(e => e.Postings.Where(p => p.ToDate == null))
+            .Include(e => e.Postings.Where(p => p.ToDate == null || p.ToDate >= DateTime.Today))
                 .ThenInclude(p => p.Department)
             .AsQueryable();
 
@@ -54,11 +54,15 @@ public class EmployeesController : Controller
 
             ViewBag.SupervisorId = currentEmployeeId;
 
-            if (hasDirectReports)
+            if (hasDirectReports && currentEmployeeId != null)
             {
+                // Everyone in the caller's full downline (not just direct reports),
+                // plus the caller themselves.
+                var subordinateIds = await GetAllSubordinateIdsAsync(currentEmployeeId.Value);
+
                 employeesQuery = employeesQuery.Where(e =>
                     e.ApplicationUserId == currentUserId ||
-                    e.SupervisorId == currentEmployeeId);
+                    subordinateIds.Contains(e.Id));
             }
             else
             {
@@ -71,7 +75,7 @@ public class EmployeesController : Controller
 
     // GET: EMPLOYEES/Details/5
     // Visibility: Admin/HR (anyone), self, my supervisor, my teammates (same supervisor),
-    // and my direct reports — i.e. anyone within one level of the caller's own team tree.
+    // and anyone in my full downline — i.e. my direct reports, their reports, and so on.
     public async Task<IActionResult> Details(int? id)
     {
         if (id == null)
@@ -81,10 +85,10 @@ public class EmployeesController : Controller
 
         var employee = await _context.Employees
     .Include(e => e.Supervisor)
-        .ThenInclude(s => s.Postings.Where(p => p.ToDate == null))
+        .ThenInclude(s => s.Postings.Where(p => p.ToDate == null || p.ToDate >= DateTime.Today))
             .ThenInclude(p => p.Designation)
     .Include(e => e.Supervisor)
-        .ThenInclude(s => s.Postings.Where(p => p.ToDate == null))
+        .ThenInclude(s => s.Postings.Where(p => p.ToDate == null || p.ToDate >= DateTime.Today))
             .ThenInclude(p => p.Department)
     .FirstOrDefaultAsync(m => m.Id == id);
 
@@ -99,12 +103,13 @@ public class EmployeesController : Controller
             .Include(p => p.Location)
             .Include(p => p.Contract)
             .Include(p => p.Supervisor)
-            .Where(p => p.EmployeeId == employee.Id && p.ToDate == null)
+            .Where(p => p.EmployeeId == employee.Id && (p.ToDate == null || p.ToDate >= DateTime.Today))
+            .OrderByDescending(p => p.FromDate)
             .FirstOrDefaultAsync();
 
         ViewBag.CurrentPosting = currentPosting;
         var teamMembers = await _context.Employees
-    .Include(e => e.Postings.Where(p => p.ToDate == null))
+    .Include(e => e.Postings.Where(p => p.ToDate == null || p.ToDate >= DateTime.Today))
         .ThenInclude(p => p.Designation)
     .Where(e => e.SupervisorId == employee.Id)
     .ToListAsync();
@@ -115,7 +120,7 @@ public class EmployeesController : Controller
         if (employee.SupervisorId != null)
         {
             teammates = await _context.Employees
-                .Include(e => e.Postings.Where(p => p.ToDate == null))
+                .Include(e => e.Postings.Where(p => p.ToDate == null || p.ToDate >= DateTime.Today))
                     .ThenInclude(p => p.Designation)
                 .Where(e => e.SupervisorId == employee.SupervisorId && e.Id != employee.Id)
                 .ToListAsync();
@@ -157,12 +162,17 @@ public class EmployeesController : Controller
 
         var isSelf = employee.Id == currentEmployee.Id;
         var isMySupervisor = currentEmployee.SupervisorId == employee.Id;
-        var isMyDirectReport = employee.SupervisorId == currentEmployee.Id;
         var isMyTeammate = employee.SupervisorId != null
                             && employee.SupervisorId == currentEmployee.SupervisorId;
-        var canViewPostings = isSelf || isMyDirectReport;
 
-        if (isSelf || isMySupervisor || isMyDirectReport || isMyTeammate)
+        // Walks employee's Supervisor chain upward (employee -> supervisor -> supervisor's
+        // supervisor -> ...) looking for currentEmployee.Id anywhere in it. True for a
+        // direct report, a report's report, and so on, at any depth.
+        var isMySubordinate = await IsInSupervisorChainAsync(employee.Id, currentEmployee.Id);
+
+        var canViewPostings = isSelf || isMySubordinate;
+
+        if (isSelf || isMySupervisor || isMySubordinate || isMyTeammate)
         {
             var vm = new EmployeeDetailsViewModel
             {
@@ -269,6 +279,7 @@ public class EmployeesController : Controller
                 DesignationId = model.DesignationId,
                 LocationId = model.LocationId,
                 Salary = model.Salary,
+                SupervisorId = model.SupervisorId,
                 FromDate = model.PostingFromDate,
                 ToDate = null
             };
@@ -400,6 +411,81 @@ public class EmployeesController : Controller
     private bool EmployeeExists(int? id)
     {
         return _context.Employees.Any(e => e.Id == id);
+    }
+
+    // Walks upward from startEmployeeId via SupervisorId (startEmployeeId -> its
+    // supervisor -> that supervisor's supervisor -> ...) looking for targetAncestorId
+    // anywhere in the chain. Used to check "is this employee somewhere in my downline",
+    // which a single SupervisorId == currentEmployee.Id check can't answer for anyone
+    // more than one level down.
+    private async Task<bool> IsInSupervisorChainAsync(int startEmployeeId, int targetAncestorId)
+    {
+        var currentId = startEmployeeId;
+        var visited = new HashSet<int>();
+
+        while (true)
+        {
+            if (!visited.Add(currentId))
+            {
+                // Corrupted SupervisorId chain forming a cycle — bail out rather than loop forever.
+                return false;
+            }
+
+            var supervisorId = await _context.Employees
+                .Where(e => e.Id == currentId)
+                .Select(e => (int?)e.SupervisorId)
+                .FirstOrDefaultAsync();
+
+            if (supervisorId == null)
+            {
+                return false;
+            }
+
+            if (supervisorId == targetAncestorId)
+            {
+                return true;
+            }
+
+            currentId = supervisorId.Value;
+        }
+    }
+
+    // Returns the full set of employee IDs in rootEmployeeId's downline (direct
+    // reports, their reports, and so on), loaded via one bulk fetch + in-memory walk.
+    private async Task<HashSet<int>> GetAllSubordinateIdsAsync(int rootEmployeeId)
+    {
+        var supervisorPairs = await _context.Employees
+            .Where(e => e.SupervisorId != null)
+            .Select(e => new { e.Id, SupervisorId = e.SupervisorId!.Value })
+            .ToListAsync();
+
+        var bySupervisor = supervisorPairs
+            .GroupBy(p => p.SupervisorId)
+            .ToDictionary(g => g.Key, g => g.Select(p => p.Id).ToList());
+
+        var result = new HashSet<int>();
+        var queue = new Queue<int>();
+        queue.Enqueue(rootEmployeeId);
+
+        while (queue.Count > 0)
+        {
+            var currentId = queue.Dequeue();
+
+            if (!bySupervisor.TryGetValue(currentId, out var directReportIds))
+            {
+                continue;
+            }
+
+            foreach (var reportId in directReportIds)
+            {
+                if (result.Add(reportId))
+                {
+                    queue.Enqueue(reportId);
+                }
+            }
+        }
+
+        return result;
     }
 
     private void PopulateDropdowns(Employee? employee = null)

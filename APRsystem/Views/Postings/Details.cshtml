@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Posting Details";
     var posting = Model.Posting;
+    bool canManageKpis = ViewBag.CanInitiateAppraisal == true;
 }
 
 <div class="container py-4">
@@ -25,6 +26,30 @@
             ← Back to Postings
         </a>
     </div>
+    @if (User.IsInRole("Admin") || User.IsInRole("HR"))
+    {
+        <div class="mt-3">
+            <a asp-action="Edit" asp-route-id="@posting.Id" class="btn btn-warning btn-sm px-3">Edit Posting</a>
+        </div>
+    }
+
+    @if (ViewBag.CanInitiateAppraisal == true && posting.IsActive)
+    {
+        <div class="mt-3">
+            <a asp-controller="Appraisals"
+               asp-action="Create"
+               asp-route-employeeId="@posting.EmployeeId"
+               class="btn btn-success btn-sm px-3">
+                <i class="bi bi-clipboard-check me-1"></i> Initiate Appraisal
+            </a>
+        </div>
+    }
+    else if (ViewBag.CanInitiateAppraisal == true && !Model.AssignedKPIs.Any(k => k.IsActive))
+    {
+        <div class="mt-3 text-muted small">
+            <i class="bi bi-lock me-1"></i> Add at least one active KPI above to initiate an appraisal.
+        </div>
+    }
 
     @* ---------- Posting-Specific KPIs: moved to the top, this is the actionable content ---------- *@
     <div class="card shadow-sm border-0 mb-4" id="specific-kpis">
@@ -41,12 +66,17 @@
                     </small>
                 </div>
 
-                <a asp-controller="PostingKPIs"
-                   asp-action="Create"
-                   asp-route-postingId="@Model.Posting.Id"
-                   class="btn btn-primary">
-                    <i class="bi bi-plus-circle me-1"></i> Add KPI
-                </a>
+                @* Only the person who can initiate an appraisal for this posting (direct
+                   supervisor, or Admin/HR) can add KPIs — everyone else is view-only here. *@
+                @if (canManageKpis)
+                {
+                    <a asp-controller="PostingKPIs"
+                       asp-action="Create"
+                       asp-route-postingId="@Model.Posting.Id"
+                       class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-1"></i> Add KPI
+                    </a>
+                }
             </div>
 
             @if (Model.AssignedKPIs.Any())
@@ -57,7 +87,10 @@
                             <th>KPI Title</th>
                             <th>Weight</th>
                             <th>Status</th>
-                            <th width="180">Actions</th>
+                            @if (canManageKpis)
+                            {
+                                <th width="180">Actions</th>
+                            }
                         </tr>
                     </thead>
                     <tbody>
@@ -80,21 +113,24 @@
                                         <span class="badge bg-secondary">Inactive</span>
                                     }
                                 </td>
-                                <td>
-                                    <a asp-controller="PostingKPIs"
-                                       asp-action="Edit"
-                                       asp-route-id="@item.Id"
-                                       class="btn btn-sm btn-warning">
-                                        Edit
-                                    </a>
+                                @if (canManageKpis)
+                                {
+                                    <td>
+                                        <a asp-controller="PostingKPIs"
+                                           asp-action="Edit"
+                                           asp-route-id="@item.Id"
+                                           class="btn btn-sm btn-warning">
+                                            Edit
+                                        </a>
 
-                                    <a asp-controller="PostingKPIs"
-                                       asp-action="Delete"
-                                       asp-route-id="@item.Id"
-                                       class="btn btn-sm btn-danger">
-                                        Delete
-                                    </a>
-                                </td>
+                                        <a asp-controller="PostingKPIs"
+                                           asp-action="Delete"
+                                           asp-route-id="@item.Id"
+                                           class="btn btn-sm btn-danger">
+                                            Delete
+                                        </a>
+                                    </td>
+                                }
                             </tr>
                         }
                     </tbody>

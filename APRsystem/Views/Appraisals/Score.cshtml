@@ -11,6 +11,7 @@
     var currentUserId = UserManager.GetUserId(User);
     var currentEmployee = DbContext.Employees.FirstOrDefault(e => e.ApplicationUserId == currentUserId);
     bool isSupervisor = currentEmployee?.Id == Model.SupervisorId;
+    bool isEmployee = currentEmployee?.Id == Model.EmployeeId;
 
     bool editingSelf = Model.EditableField == "Self";
     bool editingSupervisor = Model.EditableField == "Supervisor";
@@ -32,6 +33,7 @@
 
         <input type="hidden" asp-for="AppraisalId" />
         <input type="hidden" asp-for="SupervisorId" />
+        <input type="hidden" asp-for="EmployeeId" />
 
         <!-- GENERAL KPIs -->
         <div class="card shadow-sm border-0 mb-4">
@@ -49,7 +51,10 @@
                             <th>Title</th>
                             <th>Weight</th>
                             <th width="140">Self Rating (0-4)</th>
-                            <th width="140">Supervisor Rating (0-4)</th>
+                            @if (!isEmployee)
+                            {
+                                <th width="140">Supervisor Rating (0-4)</th>
+                            }
                         </tr>
                     </thead>
                     <tbody>
@@ -82,16 +87,19 @@
                                         <span>@Model.GeneralKPIs[i].SelfRating</span>
                                     }
                                 </td>
-                                <td>
-                                    @if (editingSupervisor)
-                                    {
-                                        <input asp-for="GeneralKPIs[i].Rating" type="number" min="0" max="4" class="form-control" />
-                                    }
-                                    else
-                                    {
-                                        <span>@Model.GeneralKPIs[i].Rating</span>
-                                    }
-                                </td>
+                                @if (!isEmployee)
+                                {
+                                    <td>
+                                        @if (editingSupervisor)
+                                        {
+                                            <input asp-for="GeneralKPIs[i].Rating" type="number" min="0" max="4" class="form-control" />
+                                        }
+                                        else
+                                        {
+                                            <span>@Model.GeneralKPIs[i].Rating</span>
+                                        }
+                                    </td>
+                                }
                             </tr>
                         }
                     </tbody>
@@ -108,14 +116,22 @@
                         </div>
                     }
 
-                    <label asp-for="GeneralComment" class="form-label">Appraiser's Comment (General)</label>
-                    @if (readOnly)
+                    @if (!isEmployee)
                     {
-                        <textarea asp-for="GeneralComment" class="form-control" rows="3" readonly></textarea>
+                        <label asp-for="GeneralComment" class="form-label">Appraiser's Comment (General)</label>
+                        @if (readOnly)
+                        {
+                            <textarea asp-for="GeneralComment" class="form-control" rows="3" readonly></textarea>
+                        }
+                        else
+                        {
+                            <textarea asp-for="GeneralComment" class="form-control" rows="3"></textarea>
+                        }
                     }
-                    else
+                    else if (editingSelf)
                     {
-                        <textarea asp-for="GeneralComment" class="form-control" rows="3"></textarea>
+                        @* Employee is self-assessing: keep GeneralComment posting back unchanged, but don't show it *@
+                        <input type="hidden" asp-for="GeneralComment" />
                     }
                 </div>
 
@@ -138,7 +154,10 @@
                             <th>Title</th>
                             <th>Weight</th>
                             <th width="140">Self Rating (0-4)</th>
-                            <th width="140">Supervisor Rating (0-4)</th>
+                            @if (!isEmployee)
+                            {
+                                <th width="140">Supervisor Rating (0-4)</th>
+                            }
                         </tr>
                     </thead>
                     <tbody>
@@ -170,16 +189,19 @@
                                         <span>@Model.SpecificKPIs[i].SelfRating</span>
                                     }
                                 </td>
-                                <td>
-                                    @if (editingSupervisor)
-                                    {
-                                        <input asp-for="SpecificKPIs[i].Rating" type="number" min="0" max="4" class="form-control" />
-                                    }
-                                    else
-                                    {
-                                        <span>@Model.SpecificKPIs[i].Rating</span>
-                                    }
-                                </td>
+                                @if (!isEmployee)
+                                {
+                                    <td>
+                                        @if (editingSupervisor)
+                                        {
+                                            <input asp-for="SpecificKPIs[i].Rating" type="number" min="0" max="4" class="form-control" />
+                                        }
+                                        else
+                                        {
+                                            <span>@Model.SpecificKPIs[i].Rating</span>
+                                        }
+                                    </td>
+                                }
                             </tr>
                         }
                     </tbody>
@@ -194,14 +216,22 @@
                         </div>
                     }
 
-                    <label asp-for="SpecificComment" class="form-label">Appraiser's Comment (Posting-Specific)</label>
-                    @if (readOnly)
+                    @if (!isEmployee)
                     {
-                        <textarea asp-for="SpecificComment" class="form-control" rows="3" readonly></textarea>
+                        <label asp-for="SpecificComment" class="form-label">Appraiser's Comment (Posting-Specific)</label>
+                        @if (readOnly)
+                        {
+                            <textarea asp-for="SpecificComment" class="form-control" rows="3" readonly></textarea>
+                        }
+                        else
+                        {
+                            <textarea asp-for="SpecificComment" class="form-control" rows="3"></textarea>
+                        }
                     }
-                    else
+                    else if (editingSelf)
                     {
-                        <textarea asp-for="SpecificComment" class="form-control" rows="3"></textarea>
+                        @* Employee is self-assessing: keep SpecificComment posting back unchanged, but don't show it *@
+                        <input type="hidden" asp-for="SpecificComment" />
                     }
                 </div>
 
@@ -252,26 +282,6 @@
         }
 
     </form>
-    @if (!editingSelf)
-    {
-        <label class="form-label">Employee's Comment (General)</label>
-        <div class="form-control bg-light mb-3" style="min-height: 80px; white-space: pre-wrap; display: block;">
-            @(string.IsNullOrWhiteSpace(Model.SelfGeneralComment) ? "No comment provided." : Model.SelfGeneralComment)
-        </div>
-    }
-
-    @if (editingSupervisor || (readOnly && !string.IsNullOrWhiteSpace(Model.GeneralComment)))
-    {
-        <label asp-for="GeneralComment" class="form-label">Appraiser's Comment (General)</label>
-        @if (readOnly)
-        {
-            <textarea asp-for="GeneralComment" class="form-control" rows="3" readonly></textarea>
-        }
-        else
-        {
-            <textarea asp-for="GeneralComment" class="form-control" rows="3"></textarea>
-        }
-    }
 
     @* Read-only state: supervisor is viewing the employee's self-assessment and deciding
        whether to approve it (move to their own rating stage) or send it back to the employee. *@

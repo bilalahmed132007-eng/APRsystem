@@ -80,7 +80,7 @@ namespace APRsystem.Controllers
                 .Include(p => p.Department)
                 .Include(p => p.Designation)
                 .Include(p => p.Contract)
-                .Where(p => p.ToDate == null) // Only current postings
+                .Where(p => p.ToDate == null || p.ToDate >= DateTime.Today) // Only current postings
                 .AsQueryable();
 
             // Department Filter
@@ -144,12 +144,12 @@ namespace APRsystem.Controllers
                 HasSpecificKpis = postingIdsWithKpis.Contains(p.Id),
                 HasActiveAppraisal = employeeIdsWithActiveAppraisal.Contains(p.EmployeeId)
             });
-            
+
 
             // Show only employees without KPIs
             if (showNoKpisOnly)
                 employeeRows = employeeRows.Where(e => !e.HasSpecificKpis)
-                   
+
                     ;
 
             var model = new BulkInitiateAppraisalViewModel
@@ -214,8 +214,16 @@ namespace APRsystem.Controllers
             var successCount = results.Count(r => r.StartsWith("OK:"));
             var skippedCount = results.Count - successCount;
 
-            TempData["Success"] = $"Initiated {successCount} appraisal(s)." +
-                (skippedCount > 0 ? $" Skipped {skippedCount} — see details below." : "");
+            if (skippedCount == 0)
+            {
+                TempData["Success"] = $"Successfully initiated {successCount} appraisal(s).";
+            }
+            else
+            {
+                TempData["Warning"] =
+                    $"Successfully initiated {successCount} appraisal(s). " +
+                    $"{skippedCount} employee(s) were skipped because they already have an appraisal in progress or failed validation.";
+            }
             TempData["BulkResults"] = string.Join("||", results);
 
             return RedirectToAction(nameof(BulkInitiate));
@@ -242,7 +250,9 @@ namespace APRsystem.Controllers
                 return Json(new { success = false, message = $"{employee.FullName} has no supervisor assigned." });
 
             var currentPosting = await _context.Postings
-                .FirstOrDefaultAsync(p => p.EmployeeId == employeeId && p.ToDate == null);
+                .Where(p => p.EmployeeId == employeeId && (p.ToDate == null || p.ToDate >= DateTime.Today))
+                .OrderByDescending(p => p.FromDate)
+                .FirstOrDefaultAsync();
 
             if (currentPosting == null)
                 return Json(new { success = false, message = $"{employee.FullName} has no current posting." });
@@ -279,7 +289,9 @@ namespace APRsystem.Controllers
 
             var currentPosting = await _context.Postings
                 .Include(p => p.Contract)
-                .FirstOrDefaultAsync(p => p.EmployeeId == employeeId && p.ToDate == null);
+                .Where(p => p.EmployeeId == employeeId && (p.ToDate == null || p.ToDate >= DateTime.Today))
+                .OrderByDescending(p => p.FromDate)
+                .FirstOrDefaultAsync();
 
             if (currentPosting == null)
                 return (false, $"SKIP: {employee.FullName} — no current posting.");
@@ -290,10 +302,17 @@ namespace APRsystem.Controllers
             if (!hasSpecificKpis)
                 return (false, $"SKIP: {employee.FullName} — no Posting-Specific KPIs defined.");
 
-            if (currentPosting.Contract != null && toDate > currentPosting.Contract.EndDate)
-                return (false, $"SKIP: {employee.FullName} — appraisal period exceeds contract end date.");
+            if (currentPosting.Contract != null &&
+                (currentPosting.Contract.StartDate > toDate ||
+                 (currentPosting.Contract.EndDate != null && currentPosting.Contract.EndDate < fromDate)))
+            {
+                return (false, $"SKIP: {employee.FullName} — contract does not overlap the appraisal period.");
+            }
             if (await HasActiveAppraisalAsync(employeeId))
-                return (false, $"SKIP: {employee.FullName} — already has an appraisal in progress.");
+            {
+                return (false,
+                    $"SKIP: {employee.FullName} already has an appraisal in progress. Complete or close the current appraisal before initiating a new one.");
+            }
             var alreadyExists = await _context.Appraisals.AnyAsync(a =>
                 a.PostingId == currentPosting.Id && a.FromDate == fromDate && a.ToDate == toDate);
 
@@ -365,7 +384,9 @@ namespace APRsystem.Controllers
             if (employee == null) return NotFound();
 
             var currentPosting = await _context.Postings
-    .FirstOrDefaultAsync(p => p.EmployeeId == employeeId && p.ToDate == null);
+                .Where(p => p.EmployeeId == employeeId && (p.ToDate == null || p.ToDate >= DateTime.Today))
+                .OrderByDescending(p => p.FromDate)
+                .FirstOrDefaultAsync();
 
             if (currentPosting == null)
             {
@@ -431,10 +452,11 @@ namespace APRsystem.Controllers
                 return View(model);
             }
 
-            if (model.ToDate > posting.Contract.EndDate)
+            if (posting.Contract.StartDate > model.ToDate ||
+                (posting.Contract.EndDate != null && posting.Contract.EndDate < model.FromDate))
             {
                 ModelState.AddModelError(nameof(model.ToDate),
-                    $"Appraisal end date cannot be after the contract end date ({posting.Contract.EndDate:dd MMM yyyy}).");
+                    "The contract does not overlap the appraisal period.");
                 return View(model);
             }
 
@@ -507,8 +529,11 @@ namespace APRsystem.Controllers
 
             await _context.SaveChangesAsync();
 
-            TempData["Success"] = "Appraisal initiated. For further actions, go to the Performance tab.";
-            return RedirectToAction(nameof(Index));
+            // Land the supervisor directly on the appraisal they just created — Details already
+            // shows the "Allow Self-Assessment" vs "Score Directly" decision for a Draft appraisal
+            // where they're the supervisor, so there's no reason to detour through the list first.
+            TempData["Success"] = "Appraisal initiated. Choose whether to allow self-assessment or score it directly.";
+            return RedirectToAction(nameof(Details), new { id = appraisal.Id });
         }
 
         // POST: Appraisals/AllowSelfAssessment
@@ -586,6 +611,7 @@ namespace APRsystem.Controllers
                 AppraisalId = appraisal.Id,
                 EmployeeName = appraisal.Employee.FullName,
                 FromDate = appraisal.FromDate,
+                EmployeeId = appraisal.EmployeeId,
                 ToDate = appraisal.ToDate,
                 GeneralKPIs = appraisal.AppraisalKPIs.Where(k => k.Section == KPISection.General).ToList(),
                 SpecificKPIs = appraisal.AppraisalKPIs.Where(k => k.Section == KPISection.Specific).ToList(),

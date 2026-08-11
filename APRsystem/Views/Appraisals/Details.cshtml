@@ -86,7 +86,6 @@
                             <i class="bi bi-person-check me-1"></i>Allow Self-Assessment
                         </button>
                     </form>
-                    <a asp-action="Score" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm">Score Directly</a>
                 }
 
                 @* Employee: score during self-assessment stage *@
@@ -212,18 +211,9 @@
                             <label class="form-label">Reason for rejection</label>
                             <textarea name="reviewerComments" class="form-control mb-3" rows="3" required></textarea>
 
-                            <label class="form-label">Final Rank</label>
-                            <select name="finalRank" class="form-select mb-3">
-                                <option value="">-- Select --</option>
-                                <option value="OS">Outstanding (OS)</option>
-                                <option value="AE">Above Expectations (AE)</option>
-                                <option value="ME">Meets Expectations (ME)</option>
-                                <option value="BE">Below Expectations (BE)</option>
-                                <option value="NI">Needs Improvement (NI)</option>
-                            </select>
+                            
 
-                            <label class="form-label">Action Required (if any)</label>
-                            <textarea name="actionRequired" class="form-control" rows="2"></textarea>
+                            
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -273,7 +263,10 @@
                         <th>Title</th>
                         <th>Weight</th>
                         <th>Self Rating</th>
-                        <th>Supervisor Rating</th>
+                        @if (!isEmployee)
+                        {
+                            <th>Supervisor Rating</th>
+                        }
                         <th>Score</th>
                         <th>Max</th>
                     </tr>
@@ -289,7 +282,10 @@
                             </td>
                             <td>@kpi.Weight</td>
                             <td>@kpi.SelfRating / 4</td>
-                            <td>@kpi.Rating / 4</td>
+                            @if (!isEmployee)
+                            {
+                                <td>@kpi.Rating / 4</td>
+                            }
                             <td>@kpi.Score</td>
                             <td>@(kpi.Weight * 4)</td>
                         </tr>
@@ -326,7 +322,10 @@
                         <th>Title</th>
                         <th>Weight</th>
                         <th>Self Rating</th>
-                        <th>Supervisor Rating</th>
+                        @if (!isEmployee)
+                        {
+                            <th>Supervisor Rating</th>
+                        }
                         <th>Score</th>
                         <th>Max</th>
                     </tr>
@@ -342,7 +341,10 @@
                             </td>
                             <td>@kpi.Weight</td>
                             <td>@kpi.SelfRating / 4</td>
-                            <td>@kpi.Rating / 4</td>
+                            @if (!isEmployee)
+                            {
+                                <td>@kpi.Rating / 4</td>
+                            }
                             <td>@kpi.Score</td>
                             <td>@(kpi.Weight * 4)</td>
                         </tr>

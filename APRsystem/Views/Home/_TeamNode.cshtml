@@ -1,0 +1,22 @@
+﻿@model APRsystem.ViewModels.TeamNode
+@using APRsystem.ViewModels
+
+<a class="org-card" asp-controller="Employees" asp-action="Details" asp-route-id="@Model.Employee.Id">
+    <div class="org-avatar">@TeamTreeDisplayHelpers.InitialsOf(Model.Employee)</div>
+    <div class="org-info">
+        <div class="org-name">@Model.Employee.FullName</div>
+        <div class="org-role">@TeamTreeDisplayHelpers.DesignationOf(Model.Employee)</div>
+    </div>
+</a>
+
+@if (Model.Children.Any())
+{
+    <ul>
+        @foreach (var child in Model.Children)
+        {
+            <li>
+                @await Html.PartialAsync("_TeamNode", child)
+            </li>
+        }
+    </ul>
+}

@@ -37,12 +37,11 @@
 
         <aside class="app-sidebar" id="appSidebar">
             <div class="sidebar-brand">
-                <img src="~/images/ppaf-logo.png" alt="PPAF logo" />
-                <div class="brand-text">
-                    <div class="fw-bold">APR System</div>
-                    <small class="text-muted">Performance Management</small>
-                </div>
-            </div>
+    <div class="brand-text">
+        <div class="fw-bold fs-5">APR System</div>
+        <small class="text-muted" style="font-size: 0.85rem;">Performance Management</small>
+    </div>
+</div>
 
             <ul class="sidebar-nav">
                 <li>
@@ -56,7 +55,7 @@
                     <a class="sidebar-nav-item @(currentController == "Home" && currentAction == "Team" ? "active" : "")"
                        asp-controller="Home" asp-action="Team">
                         <i class="bi bi-diagram-3"></i>
-                        <span>My Team</span>
+                        <span>My Organization</span>
                     </a>
                 </li>
                 @if (User.HasClaim(Permissions.ClaimType, Permissions.UsersView))
@@ -155,6 +154,16 @@
                             </a>
                         </li>
                     }
+                    @if (User.HasClaim(Permissions.ClaimType, Permissions.AuditLogsView))
+                    {
+                        <li>
+                            <a class="sidebar-nav-item @(currentController == "Locations" ? "active" : "")"
+                               asp-controller="Locations" asp-action="Index">
+                                <i class="bi bi-journal-text"></i>
+                                <span>Locations</span>
+                            </a>
+                        </li>
+                    }
 
                 }
             </ul>
@@ -170,6 +179,9 @@
                     </button>
                     <span class="topbar-title">@pageTitle</span>
                 </div>
+
+                <img src="~/images/ppaf-logo.png" alt="PPAF logo" class="topbar-logo" />
+
                 <div class="topbar-actions">
                     <div class="dropdown">
                         <button class="btn btn-sm border-0 position-relative" type="button" id="notificationBell"
@@ -201,8 +213,6 @@
                 </div>
             </main>
         </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)

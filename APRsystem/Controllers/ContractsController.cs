@@ -33,14 +33,29 @@ public class ContractsController : Controller
     [Authorize(Policy = Permissions.ContractsManage)]
     public async Task<IActionResult> Details(int? id)
     {
-        if (id == null) return NotFound();
+        if (id == null)
+            return NotFound();
 
         var contract = await _context.Contracts
             .Include(c => c.Employee)
-            .Include(c => c.Postings.OrderByDescending(p => p.FromDate))
+            .Include(c => c.Postings)
+                .ThenInclude(p => p.Department)
+            .Include(c => c.Postings)
+                .ThenInclude(p => p.Designation)
+            .Include(c => c.Postings)
+                .ThenInclude(p => p.Supervisor)
+            .Include(c => c.Postings)
+                .ThenInclude(p => p.Location)
+            .OrderByDescending(c => c.Postings.Max(p => p.FromDate))
             .FirstOrDefaultAsync(c => c.Id == id);
 
-        if (contract == null) return NotFound();
+        if (contract == null)
+            return NotFound();
+
+        // Optional: Sort postings newest first
+        contract.Postings = contract.Postings
+            .OrderByDescending(p => p.FromDate)
+            .ToList();
 
         return View(contract);
     }

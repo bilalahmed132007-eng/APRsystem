@@ -21,10 +21,18 @@
 
     <div class="card shadow-sm border-0">
         <div class="card-body p-4">
-
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div asp-validation-summary="All" class="alert alert-danger mb-3"></div>
+            }
             <form asp-action="Create" method="post">
 
                 <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                <!-- ContractId is resolved server-side from whichever employee is picked above.
+                     The value here is only used to prefill the form after a failed submit;
+                     the POST action re-derives it from EmployeeId regardless. -->
+                <input type="hidden" asp-for="ContractId" id="ContractId" />
 
                 <div class="row">
 
@@ -38,13 +46,9 @@
                             <span asp-validation-for="EmployeeId" class="text-danger"></span>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Contract</label>
-                            <select asp-for="ContractId" class="form-select" asp-items="ViewBag.ContractId">
-                                <option value="">Select Contract</option>
-                            </select>
-                            <span asp-validation-for="ContractId" class="text-danger"></span>
-                        </div>
+                        <small id="ContractWarning" class="text-danger d-none mb-3 d-block">
+                            This employee has no active contract.
+                        </small>
 
                         <div class="mb-3">
                             <label class="form-label">Department</label>
@@ -87,51 +91,104 @@
                             <span asp-validation-for="Salary" class="text-danger"></span>
                         </div>
 
+                        
                         <div class="mb-3">
                             <label asp-for="FromDate" class="form-label"></label>
-                            <input asp-for="FromDate" type="date" class="form-control" />
+                            <input asp-for="FromDate" type="date" class="form-control" id="FromDate" />
                             <span asp-validation-for="FromDate" class="text-danger"></span>
                         </div>
 
                         <div class="mb-3">
                             <label asp-for="ToDate" class="form-label"></label>
-                            <input asp-for="ToDate" type="date" class="form-control" />
+                            <input asp-for="ToDate" type="date" class="form-control" id="ToDate" />
                             <small class="text-muted d-block mt-1">
-                                Leave blank if this is the employee's current posting.
+                                Defaults to the selected employee's contract end date. Leave blank if open-ended.
                             </small>
-                        </div>
-                        <div class="form-check mt-3">
-                            <input asp-for="KeepPreviousPostingKPIs" class="form-check-input" />
-                            <label asp-for="KeepPreviousPostingKPIs" class="form-check-label"></label>
+                            <span asp-validation-for="ToDate" class="text-danger"></span>
+                            <div class="form-check mt-3">
+                                <input asp-for="KeepPreviousPostingKPIs" class="form-check-input" />
+                                <label asp-for="KeepPreviousPostingKPIs" class="form-check-label"></label>
 
-                            <small class="text-muted d-block">
-                                Copies the Posting-Specific KPIs from the employee's previous posting.
-                            </small>
+                                <small class="text-muted d-block">
+                                    Copies the Posting-Specific KPIs from the employee's previous posting.
+                                </small>
+                            </div>
+
                         </div>
 
                     </div>
+                    <div class="mt-4 d-flex justify-content-end">
+                        <button type="submit" class="btn btn-danger px-5">
+                            Create Posting
+                        </button>
+                    </div>
 
-                </div>
-                <div class="mt-4 d-flex justify-content-end">
-                    <button type="submit" class="btn btn-danger px-5">
-                        Create Posting
-                    </button>
-                </div>
                 
+                </form>
 
-            </form>
-
+            </div>
         </div>
+
     </div>
 
-</div>
+    <!-- Template for a single KPI row (cloned by JS) -->
+    @section Scripts {
+        @{
+            await Html.RenderPartialAsync("_ValidationScriptsPartial");
+        }
 
-<!-- Template for a single KPI row (cloned by JS) -->
+        <script>
+            (function() {
+                const employeeSelect = document.getElementById('EmployeeId');
+                const contractIdInput = document.getElementById('ContractId');
+                const contractWarning = document.getElementById('ContractWarning');
+                const toDateInput = document.getElementById('ToDate');
 
+                // Only auto-fill ToDate if the user hasn't already typed something in themselves
+                // (also true right after we auto-fill it once, which is fine — re-picking the
+                // employee should refresh it).
+                let toDateWasAutoFilled = true;
 
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+                toDateInput.addEventListener('input', function() {
+                    toDateWasAutoFilled = false;
+                });
+
+                employeeSelect.addEventListener('change', async function() {
+                    const employeeId = this.value;
+
+                    contractIdInput.value = '';
+                    contractWarning.classList.add('d-none');
+
+                    if (!employeeId) {
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(`@Url.Content("~/Postings/GetActiveContract")/${employeeId}`, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Request failed');
+                        }
+
+                        const data = await response.json();
+
+                        if (!data.found) {
+                            contractWarning.classList.remove('d-none');
+                            contractIdInput.value = '';
+                            return;
+                        }
+
+                        contractIdInput.value = data.contractId;
+
+                        if (toDateWasAutoFilled) {
+                            toDateInput.value = data.endDate || '';
+                        }
+                    } catch (err) {
+                        // Silent fail — ContractId will still be re-derived server-side on submit.
+                    }
+                });
+            })();
+        </script>
     }
-}
-    

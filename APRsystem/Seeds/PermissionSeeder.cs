@@ -11,40 +11,37 @@ namespace APRsystem.Seeds
 
             var defaults = new Dictionary<string, string[]>
             {
-                ["Admin"] = Permissions.All, // full access, always
+                ["Admin"] = Permissions.All, // full access, always — resynced every run
 
                 ["HR"] = new[]
-  {
-    Permissions.DashboardView,
+                {
+                    Permissions.DashboardView,
 
-    Permissions.UsersView,
-    Permissions.UsersCreate,
-    Permissions.UsersEdit,
+                    Permissions.UsersView,
+                    Permissions.UsersCreate,
+                    Permissions.UsersEdit,
 
-    Permissions.DepartmentsManage,
-    Permissions.PositionsManage,
-    Permissions.PostingsManage,
+                    Permissions.DepartmentsManage,
+                    Permissions.PositionsManage,
+                    Permissions.PostingsManage,
 
-    Permissions.KPIsManage,
+                    Permissions.KPIsManage,
 
-    Permissions.ContractsManage,
+                    Permissions.ContractsManage,
 
-    Permissions.AuditLogsView
-},
-
-                
-
+                    Permissions.AuditLogsView
+                },
 
                 ["Employee"] = new[]
-{
-    Permissions.DashboardView,
+                {
+                    Permissions.DashboardView,
 
-    Permissions.UsersView,
+                    Permissions.UsersView,
 
-    Permissions.KPIsView,
+                    Permissions.KPIsView,
 
-    Permissions.ContractsView
-},
+                    Permissions.ContractsView
+                },
             };
 
             foreach (var (roleName, perms) in defaults)
@@ -54,16 +51,35 @@ namespace APRsystem.Seeds
 
                 var existingClaims = await roleManager.GetClaimsAsync(role);
 
+                if (roleName == "Admin")
+                {
+                    // Admin is a safety net: always ensure every permission is present,
+                    // regardless of what the admin UI has changed. Prevents anyone from
+                    // accidentally locking all admins out of the system.
+                    foreach (var perm in perms)
+                    {
+                        bool alreadyHas = existingClaims.Any(c =>
+                            c.Type == Permissions.ClaimType && c.Value == perm);
+
+                        if (!alreadyHas)
+                        {
+                            await roleManager.AddClaimAsync(role,
+                                new System.Security.Claims.Claim(Permissions.ClaimType, perm));
+                        }
+                    }
+                    continue;
+                }
+
+                // All other roles: bootstrap-only. Once this role has ANY permission
+                // claims (meaning it's been seeded before, or edited via the admin UI),
+                // leave it alone — the admin UI is the source of truth from then on.
+                if (existingClaims.Any(c => c.Type == Permissions.ClaimType))
+                    continue;
+
                 foreach (var perm in perms)
                 {
-                    bool alreadyHas = existingClaims.Any(c =>
-                        c.Type == Permissions.ClaimType && c.Value == perm);
-
-                    if (!alreadyHas)
-                    {
-                        await roleManager.AddClaimAsync(role,
-                            new System.Security.Claims.Claim(Permissions.ClaimType, perm));
-                    }
+                    await roleManager.AddClaimAsync(role,
+                        new System.Security.Claims.Claim(Permissions.ClaimType, perm));
                 }
             }
         }

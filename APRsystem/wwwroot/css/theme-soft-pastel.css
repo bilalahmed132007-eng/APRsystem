@@ -46,8 +46,8 @@
     --shadow-lift: 0 16px 32px rgba(91, 141, 239, 0.18);
     /* Sidebar-specific */
     --sidebar-width: 248px;
-    --sidebar-width-collapsed: 76px;
-    --topbar-height: 64px;
+    --sidebar-width-collapsed: 100px;
+    --topbar-height: 100px;
 }
 
 * {

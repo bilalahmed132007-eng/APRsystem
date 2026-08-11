@@ -191,3 +191,21 @@
         width: 24px;
         height: 24px;
     }
+.app-topbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-logo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    height: 64px;
+    width: auto;
+}
+
+.topbar-actions {
+    margin-left: auto;
+}

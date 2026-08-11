@@ -47,14 +47,19 @@ public class PostingsController : Controller
 
             var currentEmployeeId = currentEmployeeForSupCheck?.Id;
 
-            var hasDirectReports = currentEmployeeId != null && await _context.Employees
-                .AnyAsync(e => e.SupervisorId == currentEmployeeId);
+            // Full downline (direct reports + their reports + ...), not just employees whose
+            // CURRENT posting happens to name this person as SupervisorId. That old check only
+            // ever matched direct reports, so postings for anyone further down the chain were
+            // invisible to a higher-up.
+            var subordinateIds = currentEmployeeId != null
+                ? await GetSubordinateIdsAsync(currentEmployeeId.Value)
+                : new HashSet<int>();
 
-            if (hasDirectReports)
+            if (subordinateIds.Count > 0)
             {
                 postingsQuery = postingsQuery.Where(p =>
                     p.Employee.ApplicationUserId == currentUserId ||
-                    p.SupervisorId == currentEmployeeId);
+                    subordinateIds.Contains(p.EmployeeId));
             }
             else
             {
@@ -84,15 +89,26 @@ public class PostingsController : Controller
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             bool isSelf = employee.ApplicationUserId == currentUserId;
-          
 
             var currentEmployeeForSupCheck = await _context.Employees
       .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
+            // Direct-supervisor check — kept separate because CanInitiateAppraisal should
+            // stay limited to the employee's immediate supervisor, not everyone above them.
             bool isSupervisorOfEmployee = currentEmployeeForSupCheck != null
                 && employee.SupervisorId == currentEmployeeForSupCheck.Id;
 
-            if (!isSelf && !isSupervisorOfEmployee)
+            // Full-downline check — this is what actually gates whether the page can be
+            // viewed at all. A higher-up should see history for anyone below them, not
+            // just their direct reports.
+            bool isInMyDownline = false;
+            if (currentEmployeeForSupCheck != null)
+            {
+                var subordinateIds = await GetSubordinateIdsAsync(currentEmployeeForSupCheck.Id);
+                isInMyDownline = subordinateIds.Contains(employee.Id);
+            }
+
+            if (!isSelf && !isInMyDownline)
             {
                 return Forbid();
             }
@@ -138,7 +154,23 @@ public class PostingsController : Controller
 
         if (posting == null)
             return NotFound();
+        if (User.IsInRole("Admin") || User.IsInRole("HR"))
+        {
+            ViewBag.CanInitiateAppraisal = true;
+        }
+        else
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
+            var currentEmployeeForSupCheck = await _context.Employees
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            // Kept as direct-supervisor-only on purpose — same reasoning as History() above.
+            bool isSupervisorOfEmployee = currentEmployeeForSupCheck != null
+                && posting.Employee?.SupervisorId == currentEmployeeForSupCheck.Id;
+
+            ViewBag.CanInitiateAppraisal = isSupervisorOfEmployee;
+        }
         var viewModel = new PostingDetailsViewModel
         {
             Posting = posting,
@@ -156,26 +188,89 @@ public class PostingsController : Controller
         return View(viewModel);
     }
 
+    // GET: POSTINGS/GetActiveContract/5  (5 = employeeId)
+    // Called via AJAX from the Create view when the Employee dropdown changes.
+    // Returns the employee's active contract so the form can show it read-only
+    // and default ToDate to the contract's end date — without a full page reload.
+    [HttpGet("Postings/GetActiveContract/{employeeId}")]
+    [Authorize(Policy = Permissions.PostingsManage)]
+    public async Task<IActionResult> GetActiveContract(int employeeId)
+    {
+        var contract = await _context.Contracts
+            .Where(c => c.EmployeeId == employeeId && c.IsActive)
+            .OrderByDescending(c => c.StartDate)
+            .FirstOrDefaultAsync();
+
+        if (contract == null)
+        {
+            return Json(new { found = false, message = "This employee has no active contract." });
+        }
+
+        return Json(new
+        {
+            found = true,
+            contractId = contract.Id,
+            contractNumber = contract.ContractNumber,
+            type = contract.Type.ToString(),
+            startDate = contract.StartDate.ToString("yyyy-MM-dd"),
+            endDate = contract.EndDate?.ToString("yyyy-MM-dd"),
+            endDateDisplay = contract.EndDate?.ToString("dd MMM yyyy") ?? "No end date"
+        });
+    }
+
     // GET: POSTINGS/Create
+    // EmployeeId is picked via dropdown on the form itself (not known up front),
+    // so Contract cannot be resolved server-side at GET time. The Create view's
+    // JS calls GetActiveContract whenever the Employee dropdown changes, and
+    // fills in the hidden ContractId + read-only contract display + ToDate default.
     [HttpGet("Postings/Create")]
     [Authorize(Policy = Permissions.PostingsManage)]
     public IActionResult Create()
     {
         PopulateDropdowns();
-        return View();
+
+        var model = new CreatePostingViewModel
+        {
+            FromDate = DateTime.Today
+        };
+
+        return View(model);
     }
 
     // POST: POSTINGS/Create
+    // ContractId is never trusted from the posted form — it's re-derived here from
+    // the employee's active contract (same lookup as GetActiveContract), so it can't
+    // be tampered with or end up mismatched with the employee, regardless of what the
+    // client-side JS sent.
     [Authorize(Policy = Permissions.PostingsManage)]
     [HttpPost("Postings/Create")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreatePostingViewModel model)
-
     {
+        var employee = await _context.Employees.FindAsync(model.EmployeeId);
+        if (employee == null)
+        {
+            ModelState.AddModelError(nameof(CreatePostingViewModel.EmployeeId), "Please select an employee.");
+            PopulateDropdowns();
+            return View(model);
+        }
+
+        var contract = await _context.Contracts
+            .Where(c => c.EmployeeId == model.EmployeeId && c.IsActive)
+            .OrderByDescending(c => c.StartDate)
+            .FirstOrDefaultAsync();
+
+        if (contract == null)
+        {
+            ModelState.AddModelError("", "This employee has no active contract.");
+            PopulateDropdowns(new Posting { EmployeeId = model.EmployeeId });
+            return View(model);
+        }
+
         var posting = new Posting
         {
             EmployeeId = model.EmployeeId,
-            ContractId = model.ContractId,
+            ContractId = contract.Id,
             DepartmentId = model.DepartmentId,
             DesignationId = model.DesignationId,
             SupervisorId = model.SupervisorId,
@@ -190,8 +285,9 @@ public class PostingsController : Controller
         ModelState.Remove(nameof(Posting.Location));
         ModelState.Remove(nameof(Posting.Contract));
         ModelState.Remove(nameof(Posting.Supervisor));
+        ModelState.Remove(nameof(CreatePostingViewModel.ContractId));
 
-        // NEW: make sure this posting's dates fall inside its contract's date range
+        // Posting's dates must fall inside its (derived) contract's date range
         await ValidatePostingDatesAgainstContract(posting.ContractId, posting.FromDate, posting.ToDate);
 
         if (!ModelState.IsValid)
@@ -204,18 +300,32 @@ public class PostingsController : Controller
 
         try
         {
-            // Close out any currently active posting for this employee
-            var activePosting = await _context.Postings
-                .Where(p => p.EmployeeId == posting.EmployeeId && p.ToDate == null)
-                .FirstOrDefaultAsync();
+            // Close out every posting that would otherwise still count as "current" —
+            // not just the one with ToDate == null — so the employee never ends up with
+            // more than one current posting at a time. The new posting becomes the sole
+            // current one; anything that overlapped it gets capped the day before it starts.
+            var overlappingPostings = await _context.Postings
+                .Where(p => p.EmployeeId == posting.EmployeeId &&
+                            p.FromDate < posting.FromDate &&
+                            (p.ToDate == null || p.ToDate >= posting.FromDate))
+                .ToListAsync();
 
-            if (activePosting != null)
+            foreach (var previous in overlappingPostings)
             {
-                activePosting.ToDate = posting.FromDate.AddDays(-1);
-                _context.Postings.Update(activePosting);
+                previous.ToDate = posting.FromDate.AddDays(-1);
+                _context.Postings.Update(previous);
             }
 
             _context.Postings.Add(posting);
+
+            // Keep Employee.SupervisorId in sync when this posting is the current one
+            if (posting.FromDate <= DateTime.Today && (posting.ToDate == null || posting.ToDate >= DateTime.Today))
+            {
+                employee.SupervisorId = posting.SupervisorId;
+
+                _context.Employees.Update(employee);
+            }
+
             await _context.SaveChangesAsync();
 
             // 👈 We'll insert the "copy previous posting KPIs" code here in the next step.
@@ -322,7 +432,7 @@ public class PostingsController : Controller
     [Authorize(Policy = Permissions.PostingsManage)]
     [HttpGet("Postings/Delete/{id?}")]
     [ValidateAntiForgeryToken]
-    
+
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
         var posting = await _context.Postings.FindAsync(id);
@@ -340,42 +450,84 @@ public class PostingsController : Controller
         return _context.Postings.Any(p => p.Id == id);
     }
 
-    // NEW: shared helper used by both Create and Edit.
+    // Returns every employee ID that sits anywhere below rootEmployeeId in the
+    // hierarchy — direct reports, their reports, and so on. Same approach as the
+    // equivalent helper in EmployeesController: one lightweight query plus a
+    // breadth-first walk in memory.
+    private async Task<HashSet<int>> GetSubordinateIdsAsync(int rootEmployeeId)
+    {
+        var pairs = await _context.Employees
+            .Where(e => e.SupervisorId != null)
+            .Select(e => new { e.Id, SupervisorId = e.SupervisorId!.Value })
+            .ToListAsync();
+
+        var bySupervisor = pairs
+            .GroupBy(p => p.SupervisorId)
+            .ToDictionary(g => g.Key, g => g.Select(p => p.Id).ToList());
+
+        var result = new HashSet<int>();
+        var queue = new Queue<int>();
+        queue.Enqueue(rootEmployeeId);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (!bySupervisor.TryGetValue(current, out var directReports))
+            {
+                continue;
+            }
+
+            foreach (var id in directReports)
+            {
+                if (result.Add(id))
+                {
+                    queue.Enqueue(id);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // Shared helper used by both Create and Edit.
     // Confirms the posting's FromDate/ToDate stay inside its Contract's StartDate/EndDate.
     // Adds ModelState errors (so they show up on the form) and returns false if invalid.
     private async Task<bool> ValidatePostingDatesAgainstContract(int contractId, DateTime fromDate, DateTime? toDate)
     {
         var contract = await _context.Contracts.FindAsync(contractId);
+
         if (contract == null)
         {
-            ModelState.AddModelError(nameof(Posting.ContractId), "Selected contract not found.");
+            ModelState.AddModelError(nameof(CreatePostingViewModel.ContractId),
+                "The selected contract could not be found.");
             return false;
         }
 
+        // Posting cannot start before contract starts
         if (fromDate < contract.StartDate)
         {
-            ModelState.AddModelError(nameof(Posting.FromDate),
-                $"Posting cannot start before the contract's start date ({contract.StartDate:d}).");
+            ModelState.AddModelError(nameof(CreatePostingViewModel.FromDate),
+                $"Posting start date cannot be before the contract start date ({contract.StartDate:dd MMM yyyy}).");
         }
 
-        if (contract.EndDate != null)
+        // Contract has an end date
+        if (contract.EndDate.HasValue)
         {
-            if (fromDate > contract.EndDate)
+            if (fromDate > contract.EndDate.Value)
             {
-                ModelState.AddModelError(nameof(Posting.FromDate),
-                    $"Posting cannot start after the contract's end date ({contract.EndDate:d}).");
+                ModelState.AddModelError(nameof(CreatePostingViewModel.FromDate),
+                    $"Posting start date cannot be after the contract end date ({contract.EndDate.Value:dd MMM yyyy}).");
             }
 
-            if (toDate != null && toDate > contract.EndDate)
+            if (toDate.HasValue && toDate.Value > contract.EndDate.Value)
             {
-                ModelState.AddModelError(nameof(Posting.ToDate),
-                    $"Posting end date cannot exceed the contract's end date ({contract.EndDate:d}).");
+                ModelState.AddModelError(nameof(CreatePostingViewModel.ToDate),
+                    $"Posting end date cannot be after the contract end date ({contract.EndDate.Value:dd MMM yyyy}).");
             }
         }
 
-        return ModelState.ErrorCount == 0;
+        return ModelState.IsValid;
     }
-
     private void PopulateDropdowns(Posting? posting = null)
     {
         ViewBag.EmployeeId = new SelectList(_context.Employees, "Id", "FullName", posting?.EmployeeId);

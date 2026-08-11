@@ -13,5 +13,6 @@ namespace APRsystem.ViewModels
         public List<Employee> Teammates { get; set; } = new();
         public List<Employee> DirectReports { get; set; } = new();
         public Employee? GrandSupervisor { get; set; }
+        public List<TeamNode> Subordinates { get; set; } = new();
     }
 }
