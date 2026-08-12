@@ -1,4 +1,4 @@
-﻿@model IEnumerable<APRsystem.Models.Posting>
+﻿@model APRsystem.ViewModels.PostingFilterViewModel
 
 @{
     ViewData["Title"] = "Postings";
@@ -21,68 +21,150 @@
         }
     </div>
 
-    <div class="card shadow-sm border-0">
+    <div class="audit-filter-card mb-4">
+        <form asp-action="Index" method="get" class="row g-3">
 
-        <div class="table-responsive">
+            <div class="col-md-3">
+                <label class="form-label">Employee Name</label>
+                <input type="text" name="EmployeeName" value="@Model.EmployeeName" class="form-control" placeholder="Search by name" />
+            </div>
 
-            <table class="table table-hover align-middle mb-0">
+            <div class="col-md-3">
+                <label class="form-label">Employee</label>
+                <select name="EmployeeId" asp-items="Model.EmployeeOptions" class="form-select">
+                    <option value="">-- All --</option>
+                </select>
+            </div>
 
-                <thead class="table-light">
-                    <tr>
-                        <th>Employee</th>
-                        <th>Department</th>
-                        <th>Designation</th>
-                        <th>Supervisor</th>
-                        <th>Location</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Status</th>
-                        <th class="text-end">Actions</th>
-                    </tr>
-                </thead>
+            <div class="col-md-3">
+                <label class="form-label">Department</label>
+                <select name="DepartmentId" asp-items="Model.DepartmentOptions" class="form-select">
+                    <option value="">-- All --</option>
+                </select>
+            </div>
 
-                <tbody>
+            <div class="col-md-3 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-funnel me-1"></i> Filter
+                </button>
+                <a asp-action="Index" class="btn-chip btn-chip-view">Clear</a>
+            </div>
 
-                    @foreach (var item in Model)
-                    {
-                        <tr>
-                            <td>@item.Employee?.FullName</td>
-                            <td>@(item.Department?.Name ?? "-")</td>
-                            <td>@(item.Designation?.Value ?? "-")</td>
-                            <td>@(item.Supervisor?.FullName ?? "-")</td>
-                            <td>@(item.Location?.Name ?? "-")</td>
-                            <td>@item.FromDate.ToString("dd MMM yyyy")</td>
-                            <td>@(item.ToDate?.ToString("dd MMM yyyy") ?? "-")</td>
-                            <td>
-                                @if (item.IsActive)
-                                {
-                                    <span class="badge-active">Current</span>
-                                }
-                                else
-                                {
-                                    <span class="badge-inactive">Ended</span>
-                                }
-                            </td>
-                            <td class="text-end">
-                                <div class="d-inline-flex gap-2">
-                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn-chip btn-chip-view">View</a>
-
-                                    @if (User.IsInRole("Admin") || User.IsInRole("HR"))
-                                    {
-                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn-chip btn-chip-edit">Edit</a>
-                                        <a asp-action="Delete" asp-route-id="@item.Id" class="btn-chip btn-chip-delete">Delete</a>
-                                    }
-                                </div>
-                            </td>
-                        </tr>
-                    }
-
-                </tbody>
-
-            </table>
-
-        </div>
-
+        </form>
     </div>
 
+    @if (!Model.Results.Any())
+    {
+        <div class="dashboard-card text-center py-4">
+            <p class="text-muted mb-0">No postings match the current filters.</p>
+        </div>
+    }
+    else
+    {
+        <div class="posting-timeline">
+            @foreach (var item in Model.Results)
+            {
+                <div class="posting-timeline-item @(item.IsActive ? "posting-current" : "posting-past") mb-3">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                        @if (item.IsActive)
+                        {
+                            <span class="badge-active">Current</span>
+                        }
+                        else
+                        {
+                            <span class="badge-inactive">Ended</span>
+                        }
+
+                        <small class="text-muted">
+                            @item.FromDate.ToString("dd MMM yyyy") &ndash; @(item.ToDate?.ToString("dd MMM yyyy") ?? "Present")
+                        </small>
+                    </div>
+
+                    <h4 class="mb-1">@item.Employee?.FullName</h4>
+                    <p class="text-muted mb-3">@(item.Designation?.Value ?? "-") · @(item.Department?.Name ?? "-") · @(item.Location?.Name ?? "-")</p>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-4">
+                            <div class="profile-field-label">Supervisor</div>
+                            <div class="profile-field-value">@(item.Supervisor?.FullName ?? "-")</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="profile-field-label">Department</div>
+                            <div class="profile-field-value">@(item.Department?.Name ?? "-")</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="profile-field-label">From</div>
+                            <div class="profile-field-value">@item.FromDate.ToString("dd MMM yyyy")</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a asp-action="Details" asp-route-id="@item.Id" class="profile-action-btn posting-btn-inline">
+                            <i class="bi bi-eye-fill me-2"></i> View Details
+                        </a>
+
+                        @if (User.IsInRole("Admin") || User.IsInRole("HR"))
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn-chip btn-chip-edit">Edit</a>
+                            <a asp-action="Delete" asp-route-id="@item.Id" class="btn-chip btn-chip-delete">Delete</a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
 </div>
+
+<style>
+    .audit-filter-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .posting-timeline-item {
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border-subtle, rgba(15,23,42,0.08));
+        border-radius: var(--radius-sm, 8px);
+        padding: 20px 24px;
+        color: inherit;
+    }
+
+    .posting-current {
+        border-left: 4px solid var(--accent, #5b8def);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+
+    .posting-past {
+        transition: background .15s ease, transform .15s ease;
+    }
+
+        .posting-past:hover {
+            background: var(--hover-bg, #f5f7fb);
+            transform: translateY(-1px);
+        }
+
+    .profile-field-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted, #8792a8);
+        margin-bottom: 4px;
+    }
+
+    .profile-field-value {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-primary, #1e2637);
+    }
+
+    .posting-btn-inline {
+        display: inline-flex;
+        margin-top: 0;
+        width: auto;
+    }
+</style>

@@ -1,6 +1,7 @@
 ﻿using APRsystem.Authorization;
 using APRsystem.Data;
 using APRsystem.Models;
+using APRsystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -18,14 +19,60 @@ public class ContractsController : Controller
     // GET: Contracts
     [HttpGet("Contracts")]
     [Authorize(Policy = Permissions.ContractsManage)]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(ContractFilterViewModel filter)
     {
-        var contracts = await _context.Contracts
+        var contractsQuery = _context.Contracts
             .Include(c => c.Employee)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(filter.EmployeeName))
+        {
+            contractsQuery = contractsQuery.Where(c =>
+                c.Employee != null && c.Employee.FullName.Contains(filter.EmployeeName));
+        }
+
+        if (filter.Type.HasValue)
+        {
+            contractsQuery = contractsQuery.Where(c => c.Type == filter.Type.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            var today = DateTime.Today;
+
+            switch (filter.Status)
+            {
+                case "Inactive":
+                    contractsQuery = contractsQuery.Where(c => !c.IsActive);
+                    break;
+                case "Expired":
+                    contractsQuery = contractsQuery.Where(c =>
+                        c.IsActive && c.EndDate != null && c.EndDate < today);
+                    break;
+                case "Active":
+                    contractsQuery = contractsQuery.Where(c =>
+                        c.IsActive && (c.EndDate == null || c.EndDate >= today));
+                    break;
+            }
+        }
+
+        filter.Results = await contractsQuery
             .OrderBy(c => c.Employee.FullName)
             .ToListAsync();
 
-        return View(contracts);
+        filter.TypeOptions = Enum.GetValues(typeof(ContractType))
+            .Cast<ContractType>()
+            .Select(t => new SelectListItem(t.ToString(), t.ToString()))
+            .ToList();
+
+        filter.StatusOptions = new List<SelectListItem>
+    {
+        new SelectListItem("Active", "Active"),
+        new SelectListItem("Expired", "Expired"),
+        new SelectListItem("Inactive", "Inactive")
+    };
+
+        return View(filter);
     }
 
     // GET: Contracts/Details/5
@@ -59,7 +106,6 @@ public class ContractsController : Controller
 
         return View(contract);
     }
-
     // GET: Contracts/Create
     [HttpGet("Contracts/Create")]
     [Authorize(Policy = Permissions.ContractsManage)]

@@ -32,6 +32,20 @@ namespace APRsystem.Models
 
         // Nullable because Permanent contracts have no fixed end date
         public DateTime? EndDate { get; set; }
+        public static ValidationResult? ValidateEndDate(
+    DateTime? endDate,
+    ValidationContext context)
+        {
+            if (!endDate.HasValue)
+                return ValidationResult.Success;
+
+            var contract = (Contract)context.ObjectInstance;
+
+            if (endDate.Value <= contract.StartDate)
+                return new ValidationResult("End date must be after start date.");
+
+            return ValidationResult.Success;
+        }
 
         public bool IsActive { get; set; } = true;
 

@@ -22,13 +22,20 @@ namespace APRsystem.Controllers
         // Entity name as stored in Workflows.Entity
         private const string WorkflowEntity = "Appraisal";
 
-        public AppraisalsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, WorkflowService workflow)
+        
+        private readonly AppraisalPdfService _pdfService;
+
+        public AppraisalsController(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            WorkflowService workflow,
+            AppraisalPdfService pdfService)
         {
             _context = context;
             _userManager = userManager;
             _workflow = workflow;
+            _pdfService = pdfService;
         }
-
         // Helper: get the Lookup.Id for a given status value (e.g. "Draft", "Approved")
         // Still used for initial creation (Draft) since that's not a transition — there's no "current state" to transition from.
         private async Task<int> GetStatusIdAsync(string value)
@@ -133,6 +140,9 @@ namespace APRsystem.Controllers
                 .Select(a => a.EmployeeId)
                 .Distinct()
                 .ToListAsync();
+            var appraisalIdsByEmployee = await _context.Appraisals
+    .Where(a => employeeIdsInList.Contains(a.EmployeeId) && a.StatusId != approvedStatusId)
+    .ToDictionaryAsync(a => a.EmployeeId, a => a.Id);
             var employeeRows = postings.Select(p => new BulkEmployeeRow
             {
                 EmployeeId = p.EmployeeId,
@@ -142,7 +152,8 @@ namespace APRsystem.Controllers
                 Designation = p.Designation?.Value ?? "-",
                 ContractType = p.Contract?.Type.ToString() ?? "-",
                 HasSpecificKpis = postingIdsWithKpis.Contains(p.Id),
-                HasActiveAppraisal = employeeIdsWithActiveAppraisal.Contains(p.EmployeeId)
+                HasActiveAppraisal = employeeIdsWithActiveAppraisal.Contains(p.EmployeeId),
+                AppraisalId = appraisalIdsByEmployee.TryGetValue(p.EmployeeId, out var apprId) ? apprId : (int?)null
             });
 
 
@@ -183,6 +194,56 @@ namespace APRsystem.Controllers
             ViewBag.SelectedContractType = contractType;
 
             return View(model);
+        }
+        // GET: Appraisals/ExportPdf/5
+        [HttpGet]
+        public async Task<IActionResult> ExportPdf(int id)
+        {
+            if (!User.IsInRole("HR") && !User.IsInRole("Admin"))
+                return Forbid();
+
+            var appraisal = await _context.Appraisals
+                .Include(a => a.Employee)
+                .Include(a => a.Supervisor)
+                .Include(a => a.Status)
+                .Include(a => a.AppraisalKPIs)
+                .FirstOrDefaultAsync(a => a.Id == id);
+
+            if (appraisal == null) return NotFound();
+
+            var pdfBytes = _pdfService.GenerateSingle(appraisal);
+            var fileName = $"Appraisal_{appraisal.Employee?.FullName?.Replace(" ", "_")}_{appraisal.Id}.pdf";
+
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+
+        // POST: Appraisals/ExportBulkPdf
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ExportBulkPdf(List<int> selectedAppraisalIds)
+        {
+            if (!User.IsInRole("HR") && !User.IsInRole("Admin"))
+                return Forbid();
+
+            if (selectedAppraisalIds == null || !selectedAppraisalIds.Any())
+            {
+                TempData["Warning"] = "No appraisals were selected for export.";
+                return RedirectToAction(nameof(BulkInitiate));
+            }
+
+            var appraisals = await _context.Appraisals
+                .Include(a => a.Employee)
+                .Include(a => a.Supervisor)
+                .Include(a => a.Status)
+                .Include(a => a.AppraisalKPIs)
+                .Where(a => selectedAppraisalIds.Contains(a.Id))
+                .OrderBy(a => a.Employee.FullName)
+                .ToListAsync();
+
+            var pdfBytes = _pdfService.GenerateBulk(appraisals);
+            var fileName = $"Appraisals_Bulk_{DateTime.Today:yyyyMMdd}.pdf";
+
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
         // ======================================================================

@@ -22,7 +22,7 @@
             <small class="text-muted">@posting.Employee?.FullName · @(posting.Designation?.Value ?? "-")</small>
         </div>
 
-        <a asp-action="Index" class="btn btn-outline-secondary">
+        <a asp-action="History" asp-route-employeeId="@posting.EmployeeId" class="btn btn-outline-secondary">
             ← Back to Postings
         </a>
     </div>

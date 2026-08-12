@@ -16,6 +16,38 @@
     bool editingSelf = Model.EditableField == "Self";
     bool editingSupervisor = Model.EditableField == "Supervisor";
     bool readOnly = Model.EditableField == "None";
+
+    // Renders a 4-star rating widget.
+    // - id/name: standard MVC id/name for the underlying int property (from Html.IdFor / Html.NameFor)
+    // - value: current rating (0-4)
+    // - editable: true = clickable stars + hidden input that posts back the value
+    //             false = static display only (posting, if needed, is handled elsewhere)
+    string StarRatingHtml(string id, string name, int value, bool editable)
+    {
+        var sb = new System.Text.StringBuilder();
+        var readonlyClass = editable ? "" : " readonly";
+        sb.Append("<div class=\"star-rating").Append(readonlyClass)
+          .Append("\" data-target=\"").Append(id)
+          .Append("\" title=\"").Append(value).Append(" of 4\">");
+
+        for (int s = 1; s <= 4; s++)
+        {
+            var filled = s <= value;
+            sb.Append("<i class=\"bi ").Append(filled ? "bi-star-fill filled" : "bi-star")
+              .Append(" star-icon\" data-value=\"").Append(s).Append("\"></i>");
+        }
+        sb.Append("</div>");
+
+        if (editable)
+        {
+            sb.Append("<input type=\"hidden\" id=\"").Append(id)
+              .Append("\" name=\"").Append(name)
+              .Append("\" value=\"").Append(value)
+              .Append("\" class=\"star-rating-value\" />");
+        }
+
+        return sb.ToString();
+    }
 }
 
 <div class="container py-4">
@@ -78,26 +110,20 @@
                                 </td>
                                 <td>@Model.GeneralKPIs[i].Weight</td>
                                 <td>
-                                    @if (editingSelf)
-                                    {
-                                        <input asp-for="GeneralKPIs[i].SelfRating" type="number" min="0" max="4" class="form-control" />
-                                    }
-                                    else
-                                    {
-                                        <span>@Model.GeneralKPIs[i].SelfRating</span>
-                                    }
+                                    @Html.Raw(StarRatingHtml(
+                                        Html.IdFor(m => m.GeneralKPIs[i].SelfRating).ToString(),
+                                        Html.NameFor(m => m.GeneralKPIs[i].SelfRating).ToString(),
+                                        Model.GeneralKPIs[i].SelfRating,
+                                        editingSelf))
                                 </td>
                                 @if (!isEmployee)
                                 {
                                     <td>
-                                        @if (editingSupervisor)
-                                        {
-                                            <input asp-for="GeneralKPIs[i].Rating" type="number" min="0" max="4" class="form-control" />
-                                        }
-                                        else
-                                        {
-                                            <span>@Model.GeneralKPIs[i].Rating</span>
-                                        }
+                                        @Html.Raw(StarRatingHtml(
+                                            Html.IdFor(m => m.GeneralKPIs[i].Rating).ToString(),
+                                            Html.NameFor(m => m.GeneralKPIs[i].Rating).ToString(),
+                                            Model.GeneralKPIs[i].Rating,
+                                            editingSupervisor))
                                     </td>
                                 }
                             </tr>
@@ -116,7 +142,12 @@
                         </div>
                     }
 
-                    @if (!isEmployee)
+                    @if (editingSelf)
+                    {
+                        <label asp-for="GeneralComment" class="form-label">Your Comment (General)</label>
+                        <textarea asp-for="GeneralComment" class="form-control" rows="3"></textarea>
+                    }
+                    else if (!isEmployee)
                     {
                         <label asp-for="GeneralComment" class="form-label">Appraiser's Comment (General)</label>
                         @if (readOnly)
@@ -127,11 +158,6 @@
                         {
                             <textarea asp-for="GeneralComment" class="form-control" rows="3"></textarea>
                         }
-                    }
-                    else if (editingSelf)
-                    {
-                        @* Employee is self-assessing: keep GeneralComment posting back unchanged, but don't show it *@
-                        <input type="hidden" asp-for="GeneralComment" />
                     }
                 </div>
 
@@ -180,26 +206,20 @@
                                 </td>
                                 <td>@Model.SpecificKPIs[i].Weight</td>
                                 <td>
-                                    @if (editingSelf)
-                                    {
-                                        <input asp-for="SpecificKPIs[i].SelfRating" type="number" min="0" max="4" class="form-control" />
-                                    }
-                                    else
-                                    {
-                                        <span>@Model.SpecificKPIs[i].SelfRating</span>
-                                    }
+                                    @Html.Raw(StarRatingHtml(
+                                        Html.IdFor(m => m.SpecificKPIs[i].SelfRating).ToString(),
+                                        Html.NameFor(m => m.SpecificKPIs[i].SelfRating).ToString(),
+                                        Model.SpecificKPIs[i].SelfRating,
+                                        editingSelf))
                                 </td>
                                 @if (!isEmployee)
                                 {
                                     <td>
-                                        @if (editingSupervisor)
-                                        {
-                                            <input asp-for="SpecificKPIs[i].Rating" type="number" min="0" max="4" class="form-control" />
-                                        }
-                                        else
-                                        {
-                                            <span>@Model.SpecificKPIs[i].Rating</span>
-                                        }
+                                        @Html.Raw(StarRatingHtml(
+                                            Html.IdFor(m => m.SpecificKPIs[i].Rating).ToString(),
+                                            Html.NameFor(m => m.SpecificKPIs[i].Rating).ToString(),
+                                            Model.SpecificKPIs[i].Rating,
+                                            editingSupervisor))
                                     </td>
                                 }
                             </tr>
@@ -216,7 +236,12 @@
                         </div>
                     }
 
-                    @if (!isEmployee)
+                    @if (editingSelf)
+                    {
+                        <label asp-for="SpecificComment" class="form-label">Your Comment (Posting-Specific)</label>
+                        <textarea asp-for="SpecificComment" class="form-control" rows="3"></textarea>
+                    }
+                    else if (!isEmployee)
                     {
                         <label asp-for="SpecificComment" class="form-label">Appraiser's Comment (Posting-Specific)</label>
                         @if (readOnly)
@@ -227,11 +252,6 @@
                         {
                             <textarea asp-for="SpecificComment" class="form-control" rows="3"></textarea>
                         }
-                    }
-                    else if (editingSelf)
-                    {
-                        @* Employee is self-assessing: keep SpecificComment posting back unchanged, but don't show it *@
-                        <input type="hidden" asp-for="SpecificComment" />
                     }
                 </div>
 
@@ -316,3 +336,104 @@
     }
 
 </div>
+
+<style>
+    .star-rating {
+        display: inline-flex;
+        gap: 4px;
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+
+    .star-rating .star-icon {
+        color: #d9d9d9;
+        transition: color .1s ease-in-out, transform .1s ease-in-out;
+    }
+
+    .star-rating .star-icon.filled {
+        color: #f5b301;
+    }
+
+    /* Only clickable/hoverable when NOT marked readonly */
+    .star-rating:not(.readonly) .star-icon {
+        cursor: pointer;
+    }
+
+    .star-rating:not(.readonly) .star-icon:hover {
+        transform: scale(1.15);
+    }
+</style>
+
+<script>
+    (function () {
+        function initStarRatings(root) {
+            (root || document).querySelectorAll('.star-rating:not(.readonly)').forEach(function (widget) {
+                // Avoid double-binding if this init ever runs more than once
+                if (widget.dataset.starBound === '1') return;
+                widget.dataset.starBound = '1';
+
+                var input = document.getElementById(widget.getAttribute('data-target'));
+                if (!input) return;
+
+                var stars = widget.querySelectorAll('.star-icon');
+
+                function render(val) {
+                    stars.forEach(function (star) {
+                        var v = parseInt(star.getAttribute('data-value'), 10);
+                        var isFilled = v <= val;
+                        star.classList.toggle('bi-star-fill', isFilled);
+                        star.classList.toggle('bi-star', !isFilled);
+                        star.classList.toggle('filled', isFilled);
+                    });
+                    widget.setAttribute('title', val + ' of 4');
+                }
+
+                stars.forEach(function (star) {
+                    star.addEventListener('mouseenter', function () {
+                        render(parseInt(star.getAttribute('data-value'), 10));
+                    });
+
+                    star.addEventListener('click', function () {
+                        var clicked = parseInt(star.getAttribute('data-value'), 10);
+                        var current = parseInt(input.value || '0', 10);
+                        // Clicking the star that represents the current value clears the rating back to 0
+                        var newVal = (clicked === current) ? 0 : clicked;
+                        input.value = newVal;
+                        render(newVal);
+                    });
+                });
+
+                widget.addEventListener('mouseleave', function () {
+                    render(parseInt(input.value || '0', 10));
+                });
+            });
+        }
+
+        // Init anything already on the page (normal full page load)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () { initStarRatings(); });
+        } else {
+            initStarRatings();
+        }
+
+        // Auto-init anything added later — e.g. this view being swapped into the
+        // page via AJAX/fetch, a tab panel, or any other dynamic injection.
+        // This means nothing else in the app needs to call initStarRatings() manually.
+        var observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                mutation.addedNodes.forEach(function (node) {
+                    if (node.nodeType !== 1) return; // only element nodes
+                    if (node.matches && node.matches('.star-rating')) {
+                        initStarRatings(node.parentNode);
+                    } else if (node.querySelectorAll) {
+                        var found = node.querySelectorAll('.star-rating');
+                        if (found.length) initStarRatings(node);
+                    }
+                });
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        window.initStarRatings = initStarRatings;
+    })();
+</script>

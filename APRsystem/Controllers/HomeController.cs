@@ -43,13 +43,14 @@ namespace APRsystem.Controllers
 
             if (isAdminOrHR)
             {
-                // Org-wide counts
                 model.EmployeeCount = await _context.Employees.CountAsync();
                 model.PostingCount = await _context.Postings.CountAsync();
                 model.KpiCount = await _context.KPIs.CountAsync();
                 model.ContractCount = await _context.Contracts.CountAsync();
                 model.DepartmentCount = await _context.Departments.CountAsync();
                 model.LookupCount = await _context.Lookups.CountAsync();
+
+                model.TeamTree = await BuildFullOrgTreeAsync();
             }
             else
             {
@@ -62,7 +63,6 @@ namespace APRsystem.Controllers
 
                     if (isSupervisor)
                     {
-                        // Team stats scoped to this supervisor's direct reports
                         model.EmployeeCount = teamTree.DirectReports.Count;
                         model.PostingCount = await _context.Postings
                             .CountAsync(p => p.SupervisorId == currentEmployee.Id);
@@ -71,20 +71,6 @@ namespace APRsystem.Controllers
             }
 
             return View(model);
-        }
-
-        // GET: Home/Team — dedicated full-page view of the current user's team tree
-        public async Task<IActionResult> Team()
-        {
-            var currentEmployee = await GetCurrentEmployeeAsync();
-
-            if (currentEmployee == null)
-            {
-                return Forbid();
-            }
-
-            var teamTree = await BuildTeamTreeAsync(currentEmployee);
-            return View(teamTree);
         }
 
         // Looks up the Employee record linked to the logged-in account, with the
@@ -101,6 +87,33 @@ namespace APRsystem.Controllers
                 .Include(e => e.Postings.Where(p => p.ToDate == null))
                     .ThenInclude(p => p.Department)
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+        }
+        // GET: Home/Team — dedicated full-page view of the current user's team tree
+        // GET: Home/Team — dedicated full-page view of the team tree.
+        // Admin/HR see the whole org from the top; everyone else sees their own branch.
+        public async Task<IActionResult> Team()
+        {
+            var isAdminOrHR = User.IsInRole("Admin") || User.IsInRole("HR");
+
+            if (isAdminOrHR)
+            {
+                var orgTree = await BuildFullOrgTreeAsync();
+                if (orgTree == null)
+                {
+                    return NotFound(); // no employees in the system at all
+                }
+                return View(orgTree);
+            }
+
+            var currentEmployee = await GetCurrentEmployeeAsync();
+
+            if (currentEmployee == null)
+            {
+                return Forbid();
+            }
+
+            var teamTree = await BuildTeamTreeAsync(currentEmployee);
+            return View(teamTree);
         }
 
         // Builds Supervisor, GrandSupervisor, Teammates, and DirectReports for a given
@@ -200,6 +213,43 @@ namespace APRsystem.Controllers
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+        // Builds the tree for Admin/HR: rooted at the top of the org (no SupervisorId),
+        // not at the viewer's own record. If there's more than one top-level employee,
+        // the first one (by name) is used as the visual root — flagging this below.
+        private async Task<TeamTreeViewModel?> BuildFullOrgTreeAsync()
+        {
+            var topLevelEmployees = await _context.Employees
+                .Include(e => e.Postings.Where(p => p.ToDate == null))
+                    .ThenInclude(p => p.Designation)
+                .Where(e => e.SupervisorId == null)
+                .OrderBy(e => e.FullName)
+                .ToListAsync();
+
+            var root = topLevelEmployees.FirstOrDefault();
+            if (root == null)
+            {
+                return null;
+            }
+
+            var teamTree = new TeamTreeViewModel
+            {
+                CurrentEmployee = root,
+                TeamSupervisor = null,
+                GrandSupervisor = null,
+                Teammates = topLevelEmployees.Where(e => e.Id != root.Id).ToList(),
+                IsOrgWideView = true
+            };
+
+            teamTree.DirectReports = await _context.Employees
+                .Include(e => e.Postings.Where(p => p.ToDate == null))
+                    .ThenInclude(p => p.Designation)
+                .Where(e => e.SupervisorId == root.Id)
+                .ToListAsync();
+
+            teamTree.Subordinates = await BuildSubordinateSubtreeAsync(root.Id);
+
+            return teamTree;
         }
     }
 }

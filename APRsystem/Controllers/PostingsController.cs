@@ -19,10 +19,10 @@ public class PostingsController : Controller
     }
 
     // GET: POSTINGS
+    // GET: POSTINGS
     [HttpGet("Postings/{EmployeeId?}")]
-    public async Task<IActionResult> Index(int? EmployeeId)
+    public async Task<IActionResult> Index(PostingFilterViewModel filter)
     {
-
         var postingsQuery = _context.Postings
             .Include(p => p.Employee)
             .Include(p => p.Department)
@@ -32,8 +32,6 @@ public class PostingsController : Controller
             .Include(p => p.Supervisor)
             .AsQueryable();
 
-        if (EmployeeId > 0)
-            postingsQuery = postingsQuery.Where(p => p.EmployeeId == EmployeeId);
         if (User.IsInRole("Admin") || User.IsInRole("HR"))
         {
             // see everyone's postings
@@ -43,14 +41,10 @@ public class PostingsController : Controller
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var currentEmployeeForSupCheck = await _context.Employees
-    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
             var currentEmployeeId = currentEmployeeForSupCheck?.Id;
 
-            // Full downline (direct reports + their reports + ...), not just employees whose
-            // CURRENT posting happens to name this person as SupervisorId. That old check only
-            // ever matched direct reports, so postings for anyone further down the chain were
-            // invisible to a higher-up.
             var subordinateIds = currentEmployeeId != null
                 ? await GetSubordinateIdsAsync(currentEmployeeId.Value)
                 : new HashSet<int>();
@@ -67,7 +61,39 @@ public class PostingsController : Controller
             }
         }
 
-        return View(await postingsQuery.OrderByDescending(p => p.FromDate).ToListAsync());
+        // ---- Filters ----
+        if (filter.EmployeeId.HasValue && filter.EmployeeId > 0)
+        {
+            postingsQuery = postingsQuery.Where(p => p.EmployeeId == filter.EmployeeId);
+        }
+
+        if (filter.DepartmentId.HasValue && filter.DepartmentId > 0)
+        {
+            postingsQuery = postingsQuery.Where(p => p.DepartmentId == filter.DepartmentId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.EmployeeName))
+        {
+            postingsQuery = postingsQuery.Where(p =>
+                p.Employee != null && p.Employee.FullName.Contains(filter.EmployeeName));
+        }
+
+        filter.Results = await postingsQuery
+            .OrderByDescending(p => p.FromDate)
+            .ToListAsync();
+
+        // ---- Dropdown sources ----
+        filter.EmployeeOptions = await _context.Employees
+            .OrderBy(e => e.FullName)
+            .Select(e => new SelectListItem(e.FullName, e.Id.ToString()))
+            .ToListAsync();
+
+        filter.DepartmentOptions = await _context.Departments
+            .OrderBy(d => d.Name)
+            .Select(d => new SelectListItem(d.Name, d.Id.ToString()))
+            .ToListAsync();
+
+        return View(filter);
     }
 
     // GET: POSTINGS/History/5  (5 = employeeId)

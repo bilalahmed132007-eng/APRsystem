@@ -24,5 +24,6 @@ namespace APRsystem.ViewModels
 
         public List<SelectListItem> ActionOptions { get; set; } = new();
         public List<SelectListItem> EntityOptions { get; set; } = new();
+        public bool Searched { get; set; }
     }
 }

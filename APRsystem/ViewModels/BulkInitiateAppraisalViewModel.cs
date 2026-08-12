@@ -23,6 +23,7 @@
     public class BulkEmployeeRow
     {
         public int EmployeeId { get; set; }
+        public int? AppraisalId { get; set; }
         public bool HasActiveAppraisal { get; set; }
 
         public string FullName { get; set; } = string.Empty;

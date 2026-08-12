@@ -66,9 +66,7 @@
                     </ul>
                 </div>
             }
-            <form id="bulkInitiateForm" method="post" asp-action="BulkInitiate">
-    @Html.AntiForgeryToken()
-
+            <form id="bulkInitiateForm" method="get" asp-action="BulkInitiate">
 
             <!-- Appraisal Period -->
             <div class="row g-4 mb-4">
@@ -224,9 +222,9 @@
 
                 <button class="btn btn-primary btn-lg px-5">
 
-                    <i class="bi bi-arrow-right-circle me-2"></i>
+                    <i class="bi bi-funnel me-2"></i>
 
-                    Continue
+                    Apply Filters
 
                 </button>
                     
@@ -238,11 +236,12 @@
     </div>
 
 </div>
+
+<div id="notifyToastArea"></div>
+
     <form id="bulkInitiateSubmitForm" method="post" asp-action="BulkInitiate">
         @Html.AntiForgeryToken()
         <!-- Hidden appraisal settings -->
-        ...
-   <!-- Hidden appraisal settings -->
 <input type="hidden"
        name="fromDate"
        value="@Model.FromDate.ToString("yyyy-MM-dd")" />
@@ -270,6 +269,7 @@
                             <th>Designation</th>
                             <th>Contract Type</th>
                             <th>KPIs</th>
+                            <th>Export</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -277,7 +277,7 @@
                         @if (!Model.Employees.Any())
                         {
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
+                                <td colspan="8" class="text-center text-muted py-4">
                                     No employees match this filter.
                                 </td>
                             </tr>
@@ -290,7 +290,7 @@
                                     <td>
                                         <input type="checkbox" class="form-check-input employee-checkbox"
                                                name="selectedEmployeeIds" value="@emp.EmployeeId"
-                                               disabled="@(!emp.HasSpecificKpis)" />
+                                               disabled="@(!emp.HasSpecificKpis || emp.HasActiveAppraisal)" />
                                     </td>
                                     <td>
                                         @emp.FullName
@@ -300,34 +300,36 @@
                                     <td>@emp.Designation</td>
                                     <td>@emp.ContractType</td>
                                     <td>
-                                        @if (emp.HasSpecificKpis)
+                                        @if (emp.HasActiveAppraisal)
+                                        {
+                                            <span class="badge bg-info text-dark">In Progress</span>
+                                        }
+                                        else if (emp.HasSpecificKpis)
                                         {
                                             <span class="badge bg-success">Ready</span>
-                                            <input type="checkbox" class="form-check-input employee-checkbox"
-                                                   name="selectedEmployeeIds" value="@emp.EmployeeId"
-                                                   disabled="@(!emp.HasSpecificKpis || emp.HasActiveAppraisal)" />
-                                            <td>
-                                                @if (emp.HasActiveAppraisal)
-                                                {
-                                                    <span class="badge bg-info text-dark">In Progress</span>
-                                                }
-                                                else if (emp.HasSpecificKpis)
-                                                {
-                                                    <span class="badge bg-success">Ready</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-warning text-dark" title="No Posting-Specific KPIs defined">
-                                                        <i class="bi bi-exclamation-triangle me-1"></i>No KPIs
-                                                    </span>
-                                                }
-                                            </td>
                                         }
                                         else
                                         {
                                             <span class="badge bg-warning text-dark" title="No Posting-Specific KPIs defined">
                                                 <i class="bi bi-exclamation-triangle me-1"></i>No KPIs
                                             </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (emp.AppraisalId.HasValue)
+                                        {
+                                            <div class="d-flex align-items-center gap-2">
+                                                <input type="checkbox" class="form-check-input"
+                                                       name="selectedAppraisalIds" value="@emp.AppraisalId"
+                                                       form="bulkExportForm" />
+                                                <a asp-action="ExportPdf" asp-route-id="@emp.AppraisalId" class="btn btn-sm btn-outline-primary" title="Export this appraisal">
+                                                    <i class="bi bi-file-earmark-pdf"></i>
+                                                </a>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">—</span>
                                         }
                                     </td>
                                     <td>
@@ -356,8 +358,16 @@
                 </button>
             </div>
         </div>
-   
+
 </form>
+
+<form id="bulkExportForm" method="post" asp-action="ExportBulkPdf" class="mt-3 d-flex justify-content-end">
+    @Html.AntiForgeryToken()
+    <button type="submit" class="btn btn-outline-primary">
+        <i class="bi bi-file-earmark-pdf me-2"></i> Export Selected as PDF
+    </button>
+</form>
+
 </div>
 
 
@@ -396,8 +406,8 @@
 
             updateCount();
 
-            // NEW: "Notify Supervisor" button — AJAX call, no page reload
-            const antiForgeryToken = document.querySelector('#bulkInitiateForm input[name="__RequestVerificationToken"]').value;
+            // "Notify Supervisor" button — AJAX call, no page reload
+            const antiForgeryToken = document.querySelector('#bulkInitiateSubmitForm input[name="__RequestVerificationToken"]').value;
 
             document.querySelectorAll('.notify-supervisor-btn').forEach(btn => {
                 btn.addEventListener('click', async function () {

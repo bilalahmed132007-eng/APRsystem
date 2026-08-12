@@ -16,6 +16,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="QuestPDF" Version="2026.7.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,7 +24,6 @@
     <Folder Include="Models\HR\" />
     <Folder Include="Models\APR\" />
     <Folder Include="Helpers\" />
-    <Folder Include="Services\" />
     <Folder Include="wwwroot\Images\" />
   </ItemGroup>
 

@@ -14,5 +14,6 @@ namespace APRsystem.ViewModels
         public List<Employee> DirectReports { get; set; } = new();
         public Employee? GrandSupervisor { get; set; }
         public List<TeamNode> Subordinates { get; set; } = new();
+        public bool IsOrgWideView { get; set; }
     }
 }

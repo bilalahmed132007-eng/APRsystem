@@ -13,6 +13,8 @@
 
 <div class="audit-filter-card mb-4">
     <form asp-action="Index" method="get" class="row g-3">
+        <input type="hidden" name="Searched" value="true" />
+
         <div class="col-md-3">
             <label class="form-label">User</label>
             <input type="text" name="UserName" value="@Model.UserName" class="form-control" placeholder="Search by user name" />
@@ -42,86 +44,105 @@
             <input type="date" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" class="form-control" />
         </div>
 
-        <div class="col-md-1 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary w-100">
+        <div class="col-md-1 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-primary w-100" title="Search">
                 <i class="bi bi-funnel"></i>
             </button>
+        </div>
+
+        <div class="col-12 d-flex justify-content-end">
+            <a asp-action="Index" class="btn-chip btn-chip-clear">
+                <i class="bi bi-x-circle me-1"></i>Clear Filters
+            </a>
         </div>
     </form>
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <p class="text-muted mb-0">@Model.TotalCount record(s) found.</p>
-</div>
+@if (!Model.Searched)
+{
+    <div class="audit-table-card">
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-funnel fs-3 d-block mb-2"></i>
+            Apply a filter above to view audit records.
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <p class="text-muted mb-0">@Model.TotalCount record(s) found.</p>
+    </div>
 
-<div class="audit-table-card">
-    <table class="table app-table table-hover mb-0">
-        <thead>
-            <tr>
-                <th>Date/Time</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Entity</th>
-                <th>Record ID</th>
-                <th>Changed Fields</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (!Model.Results.Any())
-            {
+    <div class="audit-table-card">
+        <table class="table app-table table-hover mb-0">
+            <thead>
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">No audit records match the current filters.</td>
+                    <th>Date/Time</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Record ID</th>
+                    <th>Changed Fields</th>
+                    <th></th>
                 </tr>
-            }
-            else
-            {
-                @foreach (var log in Model.Results)
+            </thead>
+            <tbody>
+                @if (!Model.Results.Any())
                 {
                     <tr>
-                        <td class="text-nowrap">@log.Timestamp.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</td>
-                        <td>@(log.UserName ?? "System")</td>
-                        <td>
-                            <span class="audit-badge audit-badge-@(log.Action switch
-                                  {
-                                      "Created" => "success",
-                                      "Updated" => "warning",
-                                      "Deleted" => "danger",
-                                      _ => "neutral"
-                                  })">@log.Action</span>
-                        </td>
-                        <td>@log.EntityName</td>
-                        <td>@log.RecordId</td>
-                        <td class="text-truncate" style="max-width: 260px;">@log.ChangedColumns</td>
-                        <td class="text-end">
-                            <a asp-action="Details" asp-route-id="@log.Id" class="btn-chip btn-chip-view">View</a>
-                        </td>
+                        <td colspan="7" class="text-center text-muted py-4">No audit records match the current filters.</td>
                     </tr>
                 }
-            }
-        </tbody>
-    </table>
-</div>
+                else
+                {
+                    @foreach (var log in Model.Results)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@log.Timestamp.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</td>
+                            <td>@(log.UserName ?? "System")</td>
+                            <td>
+                                <span class="audit-badge audit-badge-@(log.Action switch
+                                      {
+                                          "Created" => "success",
+                                          "Updated" => "warning",
+                                          "Deleted" => "danger",
+                                          _ => "neutral"
+                                      })">@log.Action</span>
+                            </td>
+                            <td>@log.EntityName</td>
+                            <td>@log.RecordId</td>
+                            <td class="text-truncate" style="max-width: 260px;">@log.ChangedColumns</td>
+                            <td class="text-end">
+                                <a asp-action="Details" asp-route-id="@log.Id" class="btn-chip btn-chip-view">View</a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
 
-@if (Model.TotalPages > 1)
-{
-    <nav class="mt-4">
-        <ul class="pagination audit-pagination">
-            @for (int p = 1; p <= Model.TotalPages; p++)
-            {
-                <li class="page-item @(p == Model.Page ? "active" : "")">
-                    <a class="page-link"
-                       asp-action="Index"
-                       asp-route-Page="@p"
-                       asp-route-UserName="@Model.UserName"
-                       asp-route-Action="@Model.Action"
-                       asp-route-EntityName="@Model.EntityName"
-                       asp-route-FromDate="@Model.FromDate?.ToString("yyyy-MM-dd")"
-                       asp-route-ToDate="@Model.ToDate?.ToString("yyyy-MM-dd")">@p</a>
-                </li>
-            }
-        </ul>
-    </nav>
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="mt-4">
+            <ul class="pagination audit-pagination">
+                @for (int p = 1; p <= Model.TotalPages; p++)
+                {
+                    <li class="page-item @(p == Model.Page ? "active" : "")">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-Page="@p"
+                           asp-route-Searched="true"
+                           asp-route-UserName="@Model.UserName"
+                           asp-route-Action="@Model.Action"
+                           asp-route-EntityName="@Model.EntityName"
+                           asp-route-FromDate="@Model.FromDate?.ToString("yyyy-MM-dd")"
+                           asp-route-ToDate="@Model.ToDate?.ToString("yyyy-MM-dd")">@p</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
 }
 
 <style>

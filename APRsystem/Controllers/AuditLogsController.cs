@@ -1,5 +1,6 @@
 ﻿using APRsystem.Authorization;
 using APRsystem.Data;
+using APRsystem.Models;
 using APRsystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,12 +19,35 @@ namespace APRsystem.Controllers
             _context = context;
         }
 
-      
+
+        // GET: AuditLogs
         // GET: AuditLogs
         public async Task<IActionResult> Index(AuditLogFilterViewModel filter)
         {
-            var query = _context.AuditLogs.AsQueryable();
+            // Always populate dropdowns so the filter form works on first load
+            filter.ActionOptions = await _context.AuditLogs
+                .Select(a => a.Action)
+                .Distinct()
+                .OrderBy(a => a)
+                .Select(a => new SelectListItem(a, a))
+                .ToListAsync();
 
+            filter.EntityOptions = await _context.AuditLogs
+                .Select(a => a.EntityName)
+                .Distinct()
+                .OrderBy(e => e)
+                .Select(e => new SelectListItem(e, e))
+                .ToListAsync();
+
+            // Don't touch the AuditLogs table until the user actually searches
+            if (!filter.Searched)
+            {
+                filter.Results = new List<AuditLog>();
+                filter.TotalCount = 0;
+                return View(filter);
+            }
+
+            var query = _context.AuditLogs.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filter.UserName))
             {
@@ -47,7 +71,6 @@ namespace APRsystem.Controllers
 
             if (filter.ToDate.HasValue)
             {
-                // Include the entire ToDate day
                 var inclusiveEnd = filter.ToDate.Value.Date.AddDays(1);
                 query = query.Where(a => a.Timestamp < inclusiveEnd);
             }
@@ -61,21 +84,6 @@ namespace APRsystem.Controllers
                 .OrderByDescending(a => a.Timestamp)
                 .Skip((filter.Page - 1) * filter.PageSize)
                 .Take(filter.PageSize)
-                .ToListAsync();
-
-            // Populate dropdowns from distinct values actually present in the table
-            filter.ActionOptions = await _context.AuditLogs
-                .Select(a => a.Action)
-                .Distinct()
-                .OrderBy(a => a)
-                .Select(a => new SelectListItem(a, a))
-                .ToListAsync();
-
-            filter.EntityOptions = await _context.AuditLogs
-                .Select(a => a.EntityName)
-                .Distinct()
-                .OrderBy(e => e)
-                .Select(e => new SelectListItem(e, e))
                 .ToListAsync();
 
             return View(filter);

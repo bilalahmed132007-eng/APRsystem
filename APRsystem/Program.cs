@@ -4,7 +4,7 @@ using APRsystem.Models.Identity;
 using APRsystem.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +16,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<WorkflowService>();
+builder.Services.AddScoped<AppraisalPdfService>();
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 {
