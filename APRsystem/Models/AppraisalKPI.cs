@@ -14,6 +14,7 @@ namespace APRsystem.Models
 
         public int AppraisalId { get; set; }
         public Appraisal Appraisal { get; set; } = null!;
+        public string? SelfComment { get; set; }
 
         public KPISection Section { get; set; }
 

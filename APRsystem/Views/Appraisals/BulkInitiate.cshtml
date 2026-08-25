@@ -1,4 +1,5 @@
 ﻿@model APRsystem.ViewModels.BulkInitiateAppraisalViewModel
+@using APRsystem.ViewModels
 
 @{
     ViewData["Title"] = "Bulk Initiate Appraisals";
@@ -38,21 +39,21 @@
     </div>
 
     
-   <!-- STEP 1 : Configure Appraisal -->
-<div class="card border-0 shadow-lg mb-4">
+    <!-- STEP 1 : Configure Appraisal -->
+    <div class="card border-0 shadow-lg mb-4">
 
-    <div class="card-header bg-white border-0 pt-4 pb-0">
-        <h4 class="fw-bold mb-1">
-            
-            Configure Appraisal
-        </h4>
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+            <h4 class="fw-bold mb-1">
 
-        <p class="text-muted mb-0">
-            Choose the appraisal period and employee filters.
-        </p>
-    </div>
+                Configure Appraisal
+            </h4>
 
-    <div class="card-body pt-4">
+            <p class="text-muted mb-0">
+                Choose the appraisal period and employee filters.
+            </p>
+        </div>
+
+        <div class="card-body pt-4">
             @if (TempData["BulkResults"] != null)
             {
                 var messages = TempData["BulkResults"]!.ToString()!.Split("||");
@@ -68,191 +69,191 @@
             }
             <form id="bulkInitiateForm" method="get" asp-action="BulkInitiate">
 
-            <!-- Appraisal Period -->
-            <div class="row g-4 mb-4">
+                <!-- Appraisal Period -->
+                <div class="row g-4 mb-4">
 
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">
-                        <i class="bi bi-calendar-event me-1 text-primary"></i>
-                        Appraisal From
-                    </label>
-
-                    <input type="date"
-                           name="fromDate"
-                           class="form-control form-control-lg"
-                           value="@Model.FromDate.ToString("yyyy-MM-dd")" />
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">
-                        <i class="bi bi-calendar-check me-1 text-primary"></i>
-                        Appraisal To
-                    </label>
-
-                    <input type="date"
-                           name="toDate"
-                           class="form-control form-control-lg"
-                           value="@Model.ToDate.ToString("yyyy-MM-dd")" />
-                </div>
-
-                <div class="col-md-4">
-
-                    <label class="form-label fw-semibold">
-                        <i class="bi bi-award me-1 text-primary"></i>
-                        Appraisal Type
-                    </label>
-
-                    <select asp-for="Type" class="form-select form-select-lg">
-
-                        @foreach (var t in Enum.GetValues(typeof(APRsystem.Models.AppraisalType)))
-                        {
-                            <option value="@t">@t</option>
-
-                        }
-
-                    </select>
-
-                </div>
-
-            </div>
-
-            <hr class="my-4"/>
-
-            <!-- Employee Filters -->
-            <h6 class="fw-bold mb-3">
-                Employee Filters
-            </h6>
-
-            <div class="row g-4">
-
-                <div class="col-lg-3">
-
-                    <label class="form-label">
-                        Department
-                    </label>
-
-                    <select name="departmentId"
-                            asp-items="ViewBag.DepartmentId"
-                            class="form-select">
-
-                        <option value="">
-                            All Departments
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <div class="col-lg-3">
-
-                    <label class="form-label">
-                        Designation
-                    </label>
-
-                    <select name="designationId"
-                            asp-items="ViewBag.DesignationId"
-                            class="form-select">
-
-                        <option value="">
-                            All Designations
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <div class="col-lg-3">
-
-                    <label class="form-label">
-                        Contract Type
-                    </label>
-
-                    <select name="contractType"
-                            class="form-select">
-
-                        <option value="">
-                            All Contract Types
-                        </option>
-
-                        @foreach (var ct in (string[])ViewBag.ContractTypes)
-                        {
-                            <option value="@ct"
-                                    selected="@(ct == (string)ViewBag.SelectedContractType)">
-                                @ct
-                            </option>
-                        }
-
-                    </select>
-
-                </div>
-
-                <div class="col-lg-3 d-flex align-items-end">
-
-                    <div class="form-check fs-6">
-
-                        <input class="form-check-input"
-                               type="checkbox"
-                               id="showNoKpisOnly"
-                               name="showNoKpisOnly"
-                               value="true"
-                               @(Model.ShowNoKpisOnly ? "checked" : "") />
-
-                        <label class="form-check-label"
-                               for="showNoKpisOnly">
-
-                            Show Employees Without KPIs Only
-
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-calendar-event me-1 text-primary"></i>
+                            Appraisal From
                         </label>
+
+                        <input type="date"
+                               name="fromDate"
+                               class="form-control form-control-lg"
+                               value="@Model.FromDate.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-calendar-check me-1 text-primary"></i>
+                            Appraisal To
+                        </label>
+
+                        <input type="date"
+                               name="toDate"
+                               class="form-control form-control-lg"
+                               value="@Model.ToDate.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <div class="col-md-4">
+
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-award me-1 text-primary"></i>
+                            Appraisal Type
+                        </label>
+
+                        <select asp-for="Type" class="form-select form-select-lg">
+
+                            @foreach (var t in Enum.GetValues(typeof(APRsystem.Models.AppraisalType)))
+                            {
+                                <option value="@t">@t</option>
+
+                            }
+
+                        </select>
 
                     </div>
 
                 </div>
 
-            </div>
+                <hr class="my-4" />
 
-            <div class="d-flex justify-content-between align-items-center mt-5">
+                <!-- Employee Filters -->
+                <h6 class="fw-bold mb-3">
+                    Employee Filters
+                </h6>
 
-                <div class="text-muted">
+                <div class="row g-4">
 
-                    <i class="bi bi-info-circle me-1"></i>
+                    <div class="col-lg-3">
 
-                    Employees whose contracts overlap the appraisal period will be shown.
+                        <label class="form-label">
+                            Department
+                        </label>
+
+                        <select name="departmentId"
+                                asp-items="ViewBag.DepartmentId"
+                                class="form-select">
+
+                            <option value="">
+                                All Departments
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="col-lg-3">
+
+                        <label class="form-label">
+                            Designation
+                        </label>
+
+                        <select name="designationId"
+                                asp-items="ViewBag.DesignationId"
+                                class="form-select">
+
+                            <option value="">
+                                All Designations
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="col-lg-3">
+
+                        <label class="form-label">
+                            Contract Type
+                        </label>
+
+                        <select name="contractType"
+                                class="form-select">
+
+                            <option value="">
+                                All Contract Types
+                            </option>
+
+                            @foreach (var ct in (string[])ViewBag.ContractTypes)
+                            {
+                                <option value="@ct"
+                                        selected="@(ct == (string)ViewBag.SelectedContractType)">
+                                    @ct
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                    <div class="col-lg-3 d-flex align-items-end">
+
+                        <div class="form-check fs-6">
+
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="showNoKpisOnly"
+                                   name="showNoKpisOnly"
+                                   value="true"
+                            @(Model.ShowNoKpisOnly ? "checked" : "") />
+
+                            <label class="form-check-label"
+                                   for="showNoKpisOnly">
+
+                                Show Employees Without KPIs Only
+
+                            </label>
+
+                        </div>
+
+                    </div>
 
                 </div>
 
-                <button class="btn btn-primary btn-lg px-5">
+                <div class="d-flex justify-content-between align-items-center mt-5">
 
-                    <i class="bi bi-funnel me-2"></i>
+                    <div class="text-muted">
 
-                    Apply Filters
+                        <i class="bi bi-info-circle me-1"></i>
 
-                </button>
+                        Employees whose contracts overlap the appraisal period will be shown.
+
+                    </div>
+
+                    <button class="btn btn-primary btn-lg px-5">
+
+                        <i class="bi bi-funnel me-2"></i>
+
+                        Apply Filters
+
+                    </button>
+
                     
+                </div>
 
-            </div>
+            </form>
 
-        </form>
+        </div>
 
     </div>
 
-</div>
-
-<div id="notifyToastArea"></div>
+    <div id="notifyToastArea"></div>
 
     <form id="bulkInitiateSubmitForm" method="post" asp-action="BulkInitiate">
         @Html.AntiForgeryToken()
         <!-- Hidden appraisal settings -->
-<input type="hidden"
-       name="fromDate"
-       value="@Model.FromDate.ToString("yyyy-MM-dd")" />
+        <input type="hidden"
+               name="fromDate"
+               value="@Model.FromDate.ToString("yyyy-MM-dd")" />
 
-<input type="hidden"
-       name="toDate"
-       value="@Model.ToDate.ToString("yyyy-MM-dd")" />
+        <input type="hidden"
+               name="toDate"
+               value="@Model.ToDate.ToString("yyyy-MM-dd")" />
 
-<input type="hidden"
-       name="type"
-       value="@Model.Type" />
+        <input type="hidden"
+               name="type"
+               value="@Model.Type" />
 
 
         <div class="card border-0 shadow-sm">
@@ -269,6 +270,7 @@
                             <th>Designation</th>
                             <th>Contract Type</th>
                             <th>KPIs</th>
+                            <th>Status</th>
                             <th>Export</th>
                             <th></th>
                         </tr>
@@ -290,7 +292,7 @@
                                     <td>
                                         <input type="checkbox" class="form-check-input employee-checkbox"
                                                name="selectedEmployeeIds" value="@emp.EmployeeId"
-                                               disabled="@(!emp.HasSpecificKpis || emp.HasActiveAppraisal)" />
+                                               disabled="@(!emp.HasSpecificKpis || emp.Status != BulkAppraisalStatus.Ready)" />
                                     </td>
                                     <td>
                                         @emp.FullName
@@ -300,13 +302,9 @@
                                     <td>@emp.Designation</td>
                                     <td>@emp.ContractType</td>
                                     <td>
-                                        @if (emp.HasActiveAppraisal)
+                                        @if (emp.HasSpecificKpis)
                                         {
-                                            <span class="badge bg-info text-dark">In Progress</span>
-                                        }
-                                        else if (emp.HasSpecificKpis)
-                                        {
-                                            <span class="badge bg-success">Ready</span>
+                                            <span class="badge bg-success">Defined</span>
                                         }
                                         else
                                         {
@@ -316,13 +314,30 @@
                                         }
                                     </td>
                                     <td>
+                                        @switch (emp.Status)
+                                        {
+                                            case BulkAppraisalStatus.Completed:
+                                                <span class="badge bg-primary">Completed</span>
+                                                break;
+                                            case BulkAppraisalStatus.InProgress:
+                                                <span class="badge bg-info text-dark">In Progress</span>
+                                                break;
+                                            case BulkAppraisalStatus.Ready when emp.HasSpecificKpis:
+                                                <span class="badge bg-success">Ready</span>
+                                                break;
+                                            default:
+                                                <span class="text-muted small">—</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td>
                                         @if (emp.AppraisalId.HasValue)
                                         {
                                             <div class="d-flex align-items-center gap-2">
                                                 <input type="checkbox" class="form-check-input"
                                                        name="selectedAppraisalIds" value="@emp.AppraisalId"
                                                        form="bulkExportForm" />
-                                                <a asp-action="ExportPdf" asp-route-id="@emp.AppraisalId" class="btn btn-sm btn-outline-primary" title="Export this appraisal">
+                                                <a asp-action="ExportPdf" asp-route-id="@emp.AppraisalId" class="btn btn-sm btn-outline-primary" title="Export this appraisal" data-no-transition>
                                                     <i class="bi bi-file-earmark-pdf"></i>
                                                 </a>
                                             </div>
@@ -359,14 +374,18 @@
             </div>
         </div>
 
-</form>
+    </form>
 
-<form id="bulkExportForm" method="post" asp-action="ExportBulkPdf" class="mt-3 d-flex justify-content-end">
-    @Html.AntiForgeryToken()
-    <button type="submit" class="btn btn-outline-primary">
-        <i class="bi bi-file-earmark-pdf me-2"></i> Export Selected as PDF
-    </button>
-</form>
+
+    <form id="bulkExportForm" method="post" asp-action="ExportBulkPdf" class="mt-3 d-flex justify-content-end gap-2">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-outline-primary">
+            <i class="bi bi-file-earmark-pdf me-2"></i> Export Selected as PDF
+        </button>
+        <button type="submit" formaction="@Url.Action("ExportBulkExcel")" class="btn btn-outline-success">
+            <i class="bi bi-file-earmark-excel me-2"></i> Export Selected as Excel (Analytics)
+        </button>
+    </form>
 
 </div>
 
@@ -374,7 +393,7 @@
 
 @section Scripts {
     <script>
-        (function () {
+        (function() {
             const selectAll = document.getElementById('selectAll');
             const checkboxes = () => Array.from(document.querySelectorAll('.employee-checkbox:not(:disabled)'));
             const initiateBtn = document.getElementById('initiateBtn');
@@ -386,7 +405,7 @@
                 initiateBtn.disabled = checked === 0;
             }
 
-            selectAll.addEventListener('change', function () {
+            selectAll.addEventListener('change', function() {
                 checkboxes().forEach(c => c.checked = selectAll.checked);
                 updateCount();
             });
@@ -410,7 +429,7 @@
             const antiForgeryToken = document.querySelector('#bulkInitiateSubmitForm input[name="__RequestVerificationToken"]').value;
 
             document.querySelectorAll('.notify-supervisor-btn').forEach(btn => {
-                btn.addEventListener('click', async function () {
+                btn.addEventListener('click', async function() {
                     const employeeId = this.dataset.employeeId;
                     this.disabled = true;
                     const originalHtml = this.innerHTML;
@@ -430,9 +449,9 @@
                         const toastArea = document.getElementById('notifyToastArea');
                         const alertClass = data.success ? 'alert-success' : 'alert-warning';
                         toastArea.innerHTML = `<div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                            ${data.message}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>`;
+                                    ${data.message}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>`;
 
                         if (data.success) {
                             this.innerHTML = '<i class="bi bi-check-lg"></i> Notified';
@@ -448,4 +467,4 @@
             });
         })();
     </script>
-}
+    }

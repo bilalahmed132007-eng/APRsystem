@@ -42,6 +42,9 @@
         "Draft" => "bg-secondary",
         "SelfAssessment" => "bg-info text-dark",
         "SupervisorReview" => "bg-primary",
+        "SupervisorAssessment" => "bg-primary",
+        "EmployeeComment" => "bg-info text-dark",
+        "SupervisorRank" => "bg-primary",
         "SubmittedForReview" => "bg-warning text-dark",
         "HRReviewed" => "bg-warning",
         "Approved" => "bg-success",
@@ -57,9 +60,12 @@
         "Draft" => 1,
         "SelfAssessment" => 2,
         "SupervisorReview" => 3,
-        "SubmittedForReview" => 4,
-        "HRReviewed" => 5,
-        "Approved" => 6,
+        "SupervisorAssessment" => 3,
+        "EmployeeComment" => 4,
+        "SupervisorRank" => 5,
+        "SubmittedForReview" => 6,
+        "HRReviewed" => 7,
+        "Approved" => 8,
         _ => null
     };
 
@@ -123,7 +129,25 @@
                 @Model.FromDate.ToString("dd MMM yyyy") — @Model.ToDate.ToString("dd MMM yyyy")
                 &nbsp;•&nbsp; Supervisor: @Model.Supervisor.FullName
             </small>
-
+            
+           
+            <!-- Workflow Modal (Static Image) -->
+            <div class="modal fade" id="workflowModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered" style="max-width: 95vw;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="bi bi-diagram-3 me-2"></i>Appraisal Workflow</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center p-0" style="max-height: 90vh; overflow: auto;">
+                            <img src="~/images/workflow.png" alt="Appraisal Workflow Diagram" style="width: 100%; height: auto; display: block;" />
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
             @if (statusValue == "Rejected" && !string.IsNullOrEmpty(Model.ReviewerComments))
             {
                 <div class="alert alert-danger mt-3 mb-0">
@@ -143,6 +167,9 @@
                         </button>
                     </form>
                 }
+                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workflowModal">
+                    <i class="bi bi-diagram-3 me-1"></i>View Workflow
+                </button>
 
                 @* Employee: score during self-assessment stage *@
                 @if (isEmployee && statusValue == "SelfAssessment")
@@ -162,14 +189,36 @@
                         </button>
                     }
                 }
-                
 
-@if (isHR || User.IsInRole("Admin"))
-{
-    <a asp-action="ExportPdf" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
-    </a>
-}
+                @* Supervisor: actively scoring (after approving the self-assessment) — this is
+                   also where a "Save Progress" draft from the Score page lands, so this link is
+                   what brings the supervisor back to resume it. *@
+                @if (isSupervisor && statusValue == "SupervisorAssessment")
+                {
+                    <a asp-action="Score" asp-route-id="@Model.Id" class="btn btn-primary btn-sm">Continue Scoring</a>
+                }
+
+                @* Employee: after the supervisor has finished scoring, employee reviews the
+                   supervisor's rating and adds their own closing comment before it moves to HR. *@
+                @if (isEmployee && statusValue == "EmployeeComment")
+                {
+                    <a asp-action="Score" asp-route-id="@Model.Id" class="btn btn-info btn-sm">Review Rating &amp; Add Comment</a>
+                }
+
+                @* Supervisor: after the employee's comment, supervisor gives their own final
+                   rank + comment — not visible to the employee. *@
+                @if (isSupervisor && statusValue == "SupervisorRank")
+                {
+                    <a asp-action="Score" asp-route-id="@Model.Id" class="btn btn-primary btn-sm">Give Final Rank</a>
+                }
+
+                
+                @if (isHR || User.IsInRole("Admin"))
+                {
+                    <a asp-action="ExportPdf" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm" data-no-transition>
+                        <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
+                    </a>
+                }
 
                 @* HR: add remarks after supervisor submits *@
                 @if (isHR && statusValue == "SubmittedForReview")
@@ -191,9 +240,7 @@
                 }
             </div>
 
-            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workflowModal">
-                <i class="bi bi-diagram-3 me-1"></i>View Workflow
-            </button>
+            
 
             <a asp-controller="Employees" asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-secondary btn-sm">
                 ← Back to Employee
@@ -238,24 +285,30 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            @* Prefilled from any earlier "Save Draft" — reviewer can pick back up
+                               instead of retyping everything before approving/rejecting. *@
                             <label class="form-label">Final Reviewer's Remarks</label>
-                            <textarea name="reviewerComments" class="form-control mb-3" rows="3"></textarea>
+                            <textarea name="reviewerComments" class="form-control mb-3" rows="3">@Model.ReviewerComments</textarea>
 
                             <label class="form-label">Final Rank</label>
                             <select name="finalRank" class="form-select mb-3">
                                 <option value="">-- Select --</option>
-                                <option value="OS">Outstanding (OS)</option>
-                                <option value="AE">Above Expectations (AE)</option>
-                                <option value="ME">Meets Expectations (ME)</option>
-                                <option value="BE">Below Expectations (BE)</option>
-                                <option value="NI">Needs Improvement (NI)</option>
+                                <option value="OS" selected="@(Model.FinalRank == "OS" ? "selected" : null)">Outstanding (OS)</option>
+                                <option value="AE" selected="@(Model.FinalRank == "AE" ? "selected" : null)">Above Expectations (AE)</option>
+                                <option value="ME" selected="@(Model.FinalRank == "ME" ? "selected" : null)">Meets Expectations (ME)</option>
+                                <option value="BE" selected="@(Model.FinalRank == "BE" ? "selected" : null)">Below Expectations (BE)</option>
+                                <option value="NI" selected="@(Model.FinalRank == "NI" ? "selected" : null)">Needs Improvement (NI)</option>
                             </select>
 
                             <label class="form-label">Action Required (if any)</label>
-                            <textarea name="actionRequired" class="form-control" rows="2"></textarea>
+                            <textarea name="actionRequired" class="form-control" rows="2">@Model.ActionRequired</textarea>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            @* Saves the three fields above without approving or rejecting — status stays put. *@
+                            <button type="submit" asp-action="SaveReviewDraft" asp-route-id="@Model.Id" formnovalidate class="btn btn-outline-primary">
+                                Save Draft
+                            </button>
                             <button type="submit" class="btn btn-success">Confirm Approve</button>
                         </div>
                     </div>
@@ -277,11 +330,7 @@
                         </div>
                         <div class="modal-body">
                             <label class="form-label">Reason for rejection</label>
-                            <textarea name="reviewerComments" class="form-control mb-3" rows="3" required></textarea>
-
-                            
-
-                            
+                            <textarea name="reviewerComments" class="form-control mb-3" rows="3" required>@Model.ReviewerComments</textarea>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -331,7 +380,7 @@
                         <th>Title</th>
                         <th>Weight</th>
                         <th>Self Rating</th>
-                        @if (!isEmployee)
+                        @if (!isEmployee || statusValue == "EmployeeComment")
                         {
                             <th>Supervisor Rating</th>
                         }
@@ -350,7 +399,7 @@
                             </td>
                             <td>@kpi.Weight</td>
                             <td>@kpi.SelfRating / 4</td>
-                            @if (!isEmployee)
+                            @if (!isEmployee || statusValue == "EmployeeComment")
                             {
                                 <td>@kpi.Rating / 4</td>
                             }
@@ -371,8 +420,11 @@
                 <dt>Employee's Comment</dt>
                 <dd>@(string.IsNullOrEmpty(Model.SelfGeneralComment) ? "—" : Model.SelfGeneralComment)</dd>
 
-                <dt>Supervisor's Comment</dt>
-                <dd>@(string.IsNullOrEmpty(Model.SupervisorGeneralComment) ? "—" : Model.SupervisorGeneralComment)</dd>
+                @if (!isEmployee || statusValue == "EmployeeComment")
+                {
+                    <dt>Supervisor's Comment</dt>
+                    <dd>@(string.IsNullOrEmpty(Model.SupervisorGeneralComment) ? "—" : Model.SupervisorGeneralComment)</dd>
+                }
             </dl>
         </div>
     </div>
@@ -390,7 +442,7 @@
                         <th>Title</th>
                         <th>Weight</th>
                         <th>Self Rating</th>
-                        @if (!isEmployee)
+                        @if (!isEmployee || statusValue == "EmployeeComment")
                         {
                             <th>Supervisor Rating</th>
                         }
@@ -409,7 +461,7 @@
                             </td>
                             <td>@kpi.Weight</td>
                             <td>@kpi.SelfRating / 4</td>
-                            @if (!isEmployee)
+                            @if (!isEmployee || statusValue == "EmployeeComment")
                             {
                                 <td>@kpi.Rating / 4</td>
                             }
@@ -430,8 +482,11 @@
                 <dt>Employee's Comment</dt>
                 <dd>@(string.IsNullOrEmpty(Model.SelfSpecificComment) ? "—" : Model.SelfSpecificComment)</dd>
 
-                <dt>Supervisor's Comment</dt>
-                <dd>@(string.IsNullOrEmpty(Model.SupervisorSpecificComment) ? "—" : Model.SupervisorSpecificComment)</dd>
+                @if (!isEmployee || statusValue == "EmployeeComment")
+                {
+                    <dt>Supervisor's Comment</dt>
+                    <dd>@(string.IsNullOrEmpty(Model.SupervisorSpecificComment) ? "—" : Model.SupervisorSpecificComment)</dd>
+                }
             </dl>
         </div>
     </div>
@@ -454,6 +509,25 @@
         </div>
     </div>
 
+    @* SECTION: Employee's closing comment, added after reviewing the supervisor's rating.
+       Visible once it exists (from the EmployeeComment stage onward), to everyone including
+       the employee — it's their own comment, not something hidden from them. *@
+    @if (!string.IsNullOrEmpty(Model.EmployeeFinalComment))
+    {
+        <div class="apr-section">
+            <div class="apr-section-header">
+                <i class="bi bi-chat-left-text"></i>
+                <h5>Employee's Comment on Supervisor Rating</h5>
+            </div>
+            <div class="apr-section-body">
+                <dl class="apr-grid mb-0">
+                    <dt>Employee's Comment</dt>
+                    <dd>@Model.EmployeeFinalComment</dd>
+                </dl>
+            </div>
+        </div>
+    }
+
     <!-- SECTION 6: Performance Ranking (Supervisor's Recommendation) — hidden from employee -->
     @if (!isEmployee && (!string.IsNullOrEmpty(Model.RecommendationText) || !string.IsNullOrEmpty(Model.RecommendedRank)))
     {
@@ -465,7 +539,7 @@
             </div>
             <div class="apr-section-body">
                 <dl class="apr-grid mb-0">
-                    <dt>Appraiser's Recommendation</dt>
+                    <dt>Supervisor Remarks</dt>
                     <dd>@(string.IsNullOrEmpty(Model.RecommendationText) ? "—" : Model.RecommendationText)</dd>
 
                     <dt>Recommended Rank</dt>
@@ -475,8 +549,29 @@
         </div>
     }
 
-    <!-- SECTION 7: Final Ranking (HR + Final Reviewer) -->
-    @if (!string.IsNullOrEmpty(Model.HRRemarks) || !string.IsNullOrEmpty(Model.ReviewerComments) || !string.IsNullOrEmpty(Model.FinalRank))
+    <!-- Supervisor's Final Rank — given after the employee's comment, hidden from employee -->
+    @if (!isEmployee && (!string.IsNullOrEmpty(Model.SupervisorFinalRank) || !string.IsNullOrEmpty(Model.SupervisorRankComment)))
+    {
+        <div class="apr-section section-ranking">
+            <div class="apr-section-header">
+                <i class="bi bi-award"></i>
+                <h5>Supervisor's Final Rank</h5>
+                <small>Not shared with employee</small>
+            </div>
+            <div class="apr-section-body">
+                <dl class="apr-grid mb-0">
+                    <dt>Final Rank</dt>
+                    <dd>@RankLabel(Model.SupervisorFinalRank)</dd>
+
+                    <dt>Comment</dt>
+                    <dd>@(string.IsNullOrEmpty(Model.SupervisorRankComment) ? "—" : Model.SupervisorRankComment)</dd>
+                </dl>
+            </div>
+        </div>
+    }
+
+    <!-- SECTION 7: Final Ranking (HR + Final Reviewer) — hidden from employee -->
+    @if (!isEmployee && (!string.IsNullOrEmpty(Model.HRRemarks) || !string.IsNullOrEmpty(Model.ReviewerComments) || !string.IsNullOrEmpty(Model.FinalRank)))
     {
         <div class="apr-section section-final">
             <div class="apr-section-header">
@@ -505,236 +600,7 @@
         </div>
     }
 
-    <!-- HISTORY -->
+   
 
-    <!-- Workflow Modal -->
-    <div class="modal fade" id="workflowModal" tabindex="-1">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-diagram-3 me-2"></i>Appraisal workflow</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
 
-                    @{ var s1 = StageState("Draft"); var p1 = StatePill(s1); }
-                    <div class="@CardBorderClass("Draft") mb-3">
-                        <div class="apr-wf-card-header">
-                            <span class="apr-wf-num">1</span>
-                            <h6 class="mb-0">Draft</h6>
-                            <span class="badge @p1.cls ms-auto">@p1.label</span>
-                        </div>
-                        <div class="apr-wf-card-body">
-                            <div class="apr-wf-row"><span class="apr-wf-label">Who can act</span><span>Supervisor</span></div>
-                            <div class="apr-wf-row"><span class="apr-wf-label">Action</span><span>Allow Self-Assessment</span></div>
-                            <div class="apr-wf-row"><span class="apr-wf-label">What happens</span><span><code>AllowSelfAssessment</code> → moves to Stage 2</span></div>
-                        </div>
-                    </div>
 
-                    <div class="text-center text-muted mb-3"><i class="bi bi-arrow-down"></i></div>
-
-                    @{ var s2 = StageState("SelfAssessment"); var p2 = StatePill(s2); }
-                    <div class="@CardBorderClass("SelfAssessment") mb-3">
-                        <div class="apr-wf-card-header">
-                            <span class="apr-wf-num">2</span>
-                            <h6 class="mb-0">Self assessment</h6>
-                            <span class="badge @p2.cls ms-auto">@p2.label</span>
-                        </div>
-                        <div class="apr-wf-card-body">
-                            <div class="apr-wf-row"><span class="apr-wf-label">Who can act</span><span>Employee</span></div>
-                            <div class="apr-wf-row"><span class="apr-wf-label">Action</span><span>Complete Self-Assessment <small class="text-muted">(opens Score view, EditableField = Self)</small></span></div>
-                            <div class="apr-wf-row"><span class="apr-wf-label">What happens</span><span>Posts ratings and comments → moves to Stage 3 (3a)</span></div>
-                        </div>
-                    </div>
-
-                    <div class="text-center text-muted mb-3"><i class="bi bi-arrow-down"></i></div>
-
-                    @{ var s3 = StageState("SupervisorReview"); var p3 = StatePill(s3); }
-                    <div class="@CardBorderClass("SupervisorReview") mb-3">
-                        <div class="apr-wf-card-header">
-                            <span class="apr-wf-num">3</span>
-                            <h6 class="mb-0">Supervisor review</h6>
-                            <span class="badge @p3.cls ms-auto">@p3.label</span>
-                        </div>
-                        <div class="apr-wf-card-body">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <div class="apr-wf-subcard">
-                                        <div class="apr-wf-subcard-header">
-                                            <span class="apr-wf-subnum">3a</span>
-                                            <strong>Supervisor review <small class="text-muted">(read-only)</small></strong>
-                                        </div>
-                                        <div class="apr-wf-row"><span class="apr-wf-label">Who can act</span><span>Supervisor</span></div>
-                                        <div class="apr-wf-row"><span class="apr-wf-label">Action</span><span>Approve Self-Assessment <small class="text-muted">(Score view's Review Decision card)</small><br />Revert to Employee / Send Back to Employee <small class="text-muted">(Details and Score views)</small></span></div>
-                                        <div class="apr-wf-row"><span class="apr-wf-label">What happens</span><span>
-                                            <code>ApproveSelfAssessment</code> → unlocks 3b<br />
-                                            <code>SendBackToEmployee</code> → back to Stage 2
-                                        </span></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="apr-wf-subcard">
-                                        <div class="apr-wf-subcard-header">
-                                            <span class="apr-wf-subnum">3b</span>
-                                            <strong>Supervisor review <small class="text-muted">(editable)</small></strong>
-                                        </div>
-                                        <div class="apr-wf-row"><span class="apr-wf-label">Who can act</span><span>Supervisor</span></div>
-                                        <div class="apr-wf-row"><span class="apr-wf-label">Action</span><span>Submit Rating to HR <small class="text-muted">(Score view)</small></span></div>
-                                        <div class="apr-wf-row"><span class="apr-wf-label">What happens</span><span>Posts supervisor ratings, comments, recommendation and rank → moves to Stage 4</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="text-center text-muted mb-3"><i class="bi bi-arrow-down"></i></div>
-
-                    @{ var s4 = StageState("SubmittedForReview"); var p4 = StatePill(s4); }
-                    <div class="@CardBorderClass("SubmittedForReview") mb-3">
-                        <div class="apr-wf-card-header">
-                            <span class="apr-wf-num">4</span>
-                            <h6 class="mb-0">Submitted for HR</h6>
-                            <span class="badge @p4.cls ms-auto">@p4.label</span>
-                        </div>
-                        <div class="apr-wf-card-body">
-                            <div class="apr-wf-row"><span class="apr-wf-label">Who can act</span><span>HR</span></div>
-                            <div class="apr-wf-row"><span class="apr-wf-label">Action</span><span>Add HR Remarks <small class="text-muted">(modal)</small></span></div>
-                            <div class="apr-wf-row"><span class="apr-wf-label">What happens</span><span><code>HRReview</code> → moves to Stage 5</span></div>
-                        </div>
-                    </div>
-
-                    <div class="text-center text-muted mb-3"><i class="bi bi-arrow-down"></i></div>
-
-                    @{ var s5 = StageState("HRReviewed"); var p5 = StatePill(s5); }
-                    <div class="@CardBorderClass("HRReviewed") mb-3">
-                        <div class="apr-wf-card-header">
-                            <span class="apr-wf-num">5</span>
-                            <h6 class="mb-0">HR reviewed</h6>
-                            <span class="badge @p5.cls ms-auto">@p5.label</span>
-                        </div>
-                        <div class="apr-wf-card-body">
-                            <div class="apr-wf-row"><span class="apr-wf-label">Who can act</span><span>Final Reviewer</span></div>
-                            <div class="apr-wf-row"><span class="apr-wf-label">Actions</span><span>
-                                <span class="text-success"><i class="bi bi-check-circle me-1"></i>Approve</span> <small class="text-muted">(modal: final remarks, final rank, action required)</small><br />
-                                <span class="text-danger"><i class="bi bi-x-circle me-1"></i>Reject</span> <small class="text-muted">(modal: rejection reason)</small>
-                            </span></div>
-                        </div>
-                    </div>
-
-                    <div class="text-center text-muted mb-3"><i class="bi bi-arrow-down"></i></div>
-
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            @{ var s6 = StageState("Approved"); var p6 = StatePill(s6); }
-                            <div class="@CardBorderClass("Approved") border-success-subtle h-100">
-                                <div class="apr-wf-card-header">
-                                    <span class="apr-wf-num bg-success">6</span>
-                                    <h6 class="mb-0">Approved</h6>
-                                    <span class="badge @p6.cls ms-auto">@p6.label</span>
-                                </div>
-                                <div class="apr-wf-card-body">
-                                    <div class="apr-wf-row"><span class="apr-wf-label">What happens</span><span>End of workflow <small class="text-muted">(terminal)</small></span></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            @{ var sR = StageState("Rejected"); var pR = StatePill(sR); }
-                            <div class="@CardBorderClass("Rejected") border-danger-subtle h-100">
-                                <div class="apr-wf-card-header">
-                                    <span class="apr-wf-num bg-danger">✕</span>
-                                    <h6 class="mb-0">Rejected</h6>
-                                    <span class="badge @pR.cls ms-auto">@pR.label</span>
-                                </div>
-                                <div class="apr-wf-card-body">
-                                    <div class="apr-wf-row"><span class="apr-wf-label">What happens</span><span>End of workflow <small class="text-muted">(terminal)</small>; reviewer's feedback shown to employee</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<style>
-    .apr-wf-card {
-        border: 1px solid #dee2e6;
-        border-radius: 10px;
-        overflow: hidden;
-    }
-    .apr-wf-card-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 14px;
-        background: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-    }
-    .apr-wf-card-body {
-        padding: 12px 14px;
-    }
-    .apr-wf-num {
-        width: 26px;
-        height: 26px;
-        border-radius: 6px;
-        background: #0d6efd;
-        color: #fff;
-        font-weight: 600;
-        font-size: 0.8rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .apr-wf-row {
-        display: flex;
-        gap: 10px;
-        padding: 4px 0;
-        font-size: 0.88rem;
-        border-top: 1px dashed #eee;
-    }
-    .apr-wf-row:first-child {
-        border-top: none;
-    }
-    .apr-wf-label {
-        min-width: 110px;
-        flex-shrink: 0;
-        font-size: 0.72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        color: #6c757d;
-        letter-spacing: .03em;
-    }
-    .apr-wf-subcard {
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        padding: 10px 12px;
-        background: #fcfcfd;
-        height: 100%;
-    }
-    .apr-wf-subcard-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 6px;
-    }
-    .apr-wf-subnum {
-        width: 22px;
-        height: 22px;
-        border-radius: 5px;
-        background: #6c9bd1;
-        color: #fff;
-        font-weight: 600;
-        font-size: 0.72rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-</style>

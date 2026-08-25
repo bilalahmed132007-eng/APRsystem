@@ -38,6 +38,7 @@ namespace APRsystem.Controllers
             var model = new DashboardViewModel
             {
                 IsAdminOrHR = isAdminOrHR,
+                Employee = currentEmployee,
                 IsSupervisor = isSupervisor
             };
 

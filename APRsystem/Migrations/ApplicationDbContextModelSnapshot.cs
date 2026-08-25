@@ -17,7 +17,7 @@ namespace APRsystem.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.28")
+                .HasAnnotation("ProductVersion", "8.0.29")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -31,6 +31,9 @@ namespace APRsystem.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ActionRequired")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmployeeFinalComment")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("EmployeeId")
@@ -99,11 +102,17 @@ namespace APRsystem.Migrations
                     b.Property<int>("StatusId")
                         .HasColumnType("int");
 
+                    b.Property<string>("SupervisorFinalRank")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("SupervisorGeneralComment")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("SupervisorId")
                         .HasColumnType("int");
+
+                    b.Property<string>("SupervisorRankComment")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SupervisorSpecificComment")
                         .HasColumnType("nvarchar(max)");
@@ -194,6 +203,9 @@ namespace APRsystem.Migrations
 
                     b.Property<int>("Section")
                         .HasColumnType("int");
+
+                    b.Property<string>("SelfComment")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("SelfRating")
                         .HasColumnType("int");

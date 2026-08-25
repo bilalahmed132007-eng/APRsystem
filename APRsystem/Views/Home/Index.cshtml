@@ -7,7 +7,9 @@
 
 <div class="dashboard-welcome mb-4">
     <p class="dashboard-welcome-greeting mb-1">
-        Welcome back, <strong>@User.Identity?.Name</strong>
+        <h1 class="page-title">
+            Welcome, @(Model.Employee?.FullName ?? "User")
+        </h1>
     </p>
     <p class="dashboard-welcome-subtext mb-0">
         @if (Model.IsAdminOrHR)

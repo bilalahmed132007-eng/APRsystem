@@ -1,12 +1,12 @@
 ﻿using APRsystem.Data;
 using APRsystem.Models;
-using APRsystem.Models.Identity;
 using APRsystem.Services;
 using APRsystem.ViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+
 
 namespace APRsystem.Controllers
 {
@@ -22,19 +22,23 @@ namespace APRsystem.Controllers
         // Entity name as stored in Workflows.Entity
         private const string WorkflowEntity = "Appraisal";
 
-        
+
         private readonly AppraisalPdfService _pdfService;
+
+        private readonly AppraisalExcelService _excelService;
 
         public AppraisalsController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             WorkflowService workflow,
-            AppraisalPdfService pdfService)
+            AppraisalPdfService pdfService,
+            AppraisalExcelService excelService)   // <-- add this
         {
             _context = context;
             _userManager = userManager;
             _workflow = workflow;
             _pdfService = pdfService;
+            _excelService = excelService;         // <-- add this
         }
         // Helper: get the Lookup.Id for a given status value (e.g. "Draft", "Approved")
         // Still used for initial creation (Draft) since that's not a transition — there's no "current state" to transition from.
@@ -47,6 +51,38 @@ namespace APRsystem.Controllers
                 throw new InvalidOperationException($"Lookup value '{value}' not found for category '{StatusCategory}'. Seed the Lookup table first.");
 
             return lookup.Id;
+        }
+        private void NotifyEmployee(int recipientEmployeeId, string message, string? url)
+        {
+            _context.Notifications.Add(new Notification
+            {
+                RecipientEmployeeId = recipientEmployeeId,
+                Message = message,
+                Url = url,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            });
+            // No SaveChangesAsync here on purpose — each caller already calls
+            // _context.SaveChangesAsync() once at the end of its action, and this
+            // way the notification is saved atomically with the workflow transition
+            // it belongs to (no half-saved state if something later in the method fails).
+        }
+
+        // HR isn't a single employee — it's a role that can be held by several people.
+        // This notifies every employee whose account is in that role.
+        private async Task NotifyRoleAsync(string role, string message, string? url)
+        {
+            var usersInRole = await _userManager.GetUsersInRoleAsync(role);
+            var userIds = usersInRole.Select(u => u.Id).ToList();
+
+            var employees = await _context.Employees
+                .Where(e => e.ApplicationUserId != null && userIds.Contains(e.ApplicationUserId))
+                .ToListAsync();
+
+            foreach (var emp in employees)
+            {
+                NotifyEmployee(emp.Id, message, url);
+            }
         }
         // Helper: does this employee already have an appraisal that hasn't reached Approved yet?
         private async Task<bool> HasActiveAppraisalAsync(int employeeId)
@@ -71,13 +107,12 @@ namespace APRsystem.Controllers
         // ======================================================================
         [HttpGet]
         public async Task<IActionResult> BulkInitiate(
-    int? departmentId,
-    int? designationId,
-    string? contractType,
-    DateTime? fromDate,
-    DateTime? toDate,
-
-    bool showNoKpisOnly = false)
+     int? departmentId,
+     int? designationId,
+     string? contractType,
+     DateTime? fromDate,
+     DateTime? toDate,
+     bool showNoKpisOnly = false)
         {
             if (!User.IsInRole("HR") && !User.IsInRole("Admin"))
                 return Forbid();
@@ -126,55 +161,63 @@ namespace APRsystem.Controllers
             // Employees having active Posting KPIs
             var postingIds = postings.Select(p => p.Id).ToList();
 
-
             var postingIdsWithKpis = await _context.PostingKPIs
                 .Where(pk => postingIds.Contains(pk.PostingId) && pk.IsActive)
                 .Select(pk => pk.PostingId)
                 .Distinct()
                 .ToListAsync();
+
             var approvedStatusId = await GetStatusIdAsync("Approved");
             var employeeIdsInList = postings.Select(p => p.EmployeeId).ToList();
 
-            var employeeIdsWithActiveAppraisal = await _context.Appraisals
-                .Where(a => employeeIdsInList.Contains(a.EmployeeId) && a.StatusId != approvedStatusId)
-                .Select(a => a.EmployeeId)
-                .Distinct()
+            // CHANGED: pull ALL appraisals for these employees (not just non-Approved ones),
+            // so "Completed" appraisals aren't invisible to this screen.
+            var allAppraisalsForEmployees = await _context.Appraisals
+                .Where(a => employeeIdsInList.Contains(a.EmployeeId))
                 .ToListAsync();
-            var appraisalIdsByEmployee = await _context.Appraisals
-    .Where(a => employeeIdsInList.Contains(a.EmployeeId) && a.StatusId != approvedStatusId)
-    .ToDictionaryAsync(a => a.EmployeeId, a => a.Id);
-            var employeeRows = postings.Select(p => new BulkEmployeeRow
-            {
-                EmployeeId = p.EmployeeId,
-                FullName = p.Employee.FullName,
-                EmployeeNo = p.Employee.EmployeeNo,
-                Department = p.Department?.Name ?? "-",
-                Designation = p.Designation?.Value ?? "-",
-                ContractType = p.Contract?.Type.ToString() ?? "-",
-                HasSpecificKpis = postingIdsWithKpis.Contains(p.Id),
-                HasActiveAppraisal = employeeIdsWithActiveAppraisal.Contains(p.EmployeeId),
-                AppraisalId = appraisalIdsByEmployee.TryGetValue(p.EmployeeId, out var apprId) ? apprId : (int?)null
-            });
 
+            // If an employee somehow has more than one appraisal record, take the most recent
+            // by FromDate as the one that represents their current state on this screen.
+            var latestAppraisalByEmployee = allAppraisalsForEmployees
+                .GroupBy(a => a.EmployeeId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.FromDate).First());
+
+            var employeeRows = postings.Select(p =>
+            {
+                latestAppraisalByEmployee.TryGetValue(p.EmployeeId, out var latestAppraisal);
+
+                var status = latestAppraisal == null
+                    ? BulkAppraisalStatus.Ready
+                    : latestAppraisal.StatusId == approvedStatusId
+                        ? BulkAppraisalStatus.Completed
+                        : BulkAppraisalStatus.InProgress;
+
+                return new BulkEmployeeRow
+                {
+                    EmployeeId = p.EmployeeId,
+                    FullName = p.Employee.FullName,
+                    EmployeeNo = p.Employee.EmployeeNo,
+                    Department = p.Department?.Name ?? "-",
+                    Designation = p.Designation?.Value ?? "-",
+                    ContractType = p.Contract?.Type.ToString() ?? "-",
+                    HasSpecificKpis = postingIdsWithKpis.Contains(p.Id),
+                    Status = status,                          // <-- this was missing
+                    AppraisalId = latestAppraisal?.Id
+                };
+            });
 
             // Show only employees without KPIs
             if (showNoKpisOnly)
-                employeeRows = employeeRows.Where(e => !e.HasSpecificKpis)
-
-                    ;
+                employeeRows = employeeRows.Where(e => !e.HasSpecificKpis);
 
             var model = new BulkInitiateAppraisalViewModel
             {
                 DepartmentId = departmentId,
                 DesignationId = designationId,
                 ContractType = contractType,
-
                 FromDate = fromDate ?? DateTime.Today,
                 ToDate = toDate ?? DateTime.Today.AddYears(1),
-
                 ShowNoKpisOnly = showNoKpisOnly,
-
-
                 Employees = employeeRows.ToList()
             };
 
@@ -245,7 +288,38 @@ namespace APRsystem.Controllers
 
             return File(pdfBytes, "application/pdf", fileName);
         }
+        // POST: Appraisals/ExportBulkExcel
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ExportBulkExcel(List<int> selectedAppraisalIds)
+        {
+            if (!User.IsInRole("HR") && !User.IsInRole("Admin"))
+                return Forbid();
 
+            if (selectedAppraisalIds == null || !selectedAppraisalIds.Any())
+            {
+                TempData["Warning"] = "No appraisals were selected for export.";
+                return RedirectToAction(nameof(BulkInitiate));
+            }
+
+            var appraisals = await _context.Appraisals
+                .Include(a => a.Employee)
+                .Include(a => a.Supervisor)
+                .Include(a => a.Status)
+                .Include(a => a.AppraisalKPIs)
+                .Include(a => a.Posting).ThenInclude(p => p.Department)
+                .Include(a => a.Posting).ThenInclude(p => p.Designation)
+                .Where(a => selectedAppraisalIds.Contains(a.Id))
+                .OrderBy(a => a.Employee.FullName)
+                .ToListAsync();
+
+            var excelBytes = _excelService.GenerateAnalyticsExport(appraisals);
+            var fileName = $"Appraisals_Analytics_{DateTime.Today:yyyyMMdd}.xlsx";
+
+            return File(excelBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName);
+        }
         // ======================================================================
         // POST: Appraisals/BulkInitiate
         // Runs the same single-employee creation logic (see InitiateAppraisalForEmployeeAsync
@@ -404,6 +478,7 @@ namespace APRsystem.Controllers
             var anticipated = await _workflow.GetSoleNextStateAsync(WorkflowEntity, draftStatusId);
             await LogHistoryAsync(appraisal.Id, "Appraisal initiated (bulk, by HR)", "HR", draftStatusId, anticipated);
 
+
             var generalKpis = await _context.KPIs.Where(k => k.IsGeneral).ToListAsync();
             foreach (var kpi in generalKpis)
             {
@@ -413,7 +488,8 @@ namespace APRsystem.Controllers
                     Section = KPISection.General,
                     Title = kpi.Title,
                     Description = kpi.Description,
-                    Weight = kpi.Weight
+                    Weight = kpi.Weight,
+                    SelfComment = string.Empty
                 });
             }
 
@@ -429,7 +505,8 @@ namespace APRsystem.Controllers
                     Section = KPISection.Specific,
                     Title = kpi.Title,
                     Description = kpi.Description,
-                    Weight = kpi.Weight
+                    Weight = kpi.Weight,
+                    SelfComment = string.Empty
                 });
             }
 
@@ -553,18 +630,21 @@ namespace APRsystem.Controllers
 
             foreach (var kpi in generalKpis)
             {
-                _context.AppraisalKPIs.Add(new AppraisalKPI
                 {
-                    AppraisalId = appraisal.Id,
-                    Section = KPISection.General,
-                    Title = kpi.Title,
-                    Description = kpi.Description,
-                    Weight = kpi.Weight,
-                    SelfRating = 0,
-                    SelfScore = 0,
-                    Rating = 0,
-                    Score = 0
-                });
+                    _context.AppraisalKPIs.Add(new AppraisalKPI
+                    {
+                        AppraisalId = appraisal.Id,
+                        Section = KPISection.General,
+                        Title = kpi.Title,
+                        Description = kpi.Description,
+                        Weight = kpi.Weight,
+                        SelfRating = 0,
+                        SelfScore = 0,
+                        Rating = 0,
+                        Score = 0,
+                        SelfComment = string.Empty
+                    });
+                }
             }
 
             // Snapshot Posting-Specific KPIs (only active ones, for this posting)
@@ -574,18 +654,21 @@ namespace APRsystem.Controllers
 
             foreach (var kpi in specificKpis)
             {
-                _context.AppraisalKPIs.Add(new AppraisalKPI
-                {
-                    AppraisalId = appraisal.Id,
-                    Section = KPISection.Specific,
-                    Title = kpi.Title,
-                    Description = kpi.Description,
-                    Weight = kpi.Weight,
-                    SelfRating = 0,
-                    SelfScore = 0,
-                    Rating = 0,
-                    Score = 0
-                });
+                { 
+                    _context.AppraisalKPIs.Add(new AppraisalKPI
+                    {
+                        AppraisalId = appraisal.Id,
+                        Section = KPISection.Specific,
+                        Title = kpi.Title,
+                        Description = kpi.Description,
+                        Weight = kpi.Weight,
+                        SelfRating = 0,
+                        SelfScore = 0,
+                        Rating = 0,
+                        Score = 0,
+                        SelfComment = string.Empty
+                    });
+                }
             }
 
             await _context.SaveChangesAsync();
@@ -631,6 +714,11 @@ namespace APRsystem.Controllers
             var anticipatedAfterSelfAssessment = await _workflow.GetSoleNextStateAsync(WorkflowEntity, wf.NextStateId);
             await LogHistoryAsync(appraisal.Id, "Self-assessment enabled for employee", "Supervisor",
                 wf.NextStateId, anticipatedAfterSelfAssessment);
+            NotifyEmployee(
+    appraisal.EmployeeId,
+    "Your supervisor has enabled self-assessment for your appraisal. Please complete it.",
+    Url.Action("Score", "Appraisals", new { id = appraisal.Id }));
+
 
             await _context.SaveChangesAsync();
 
@@ -658,13 +746,17 @@ namespace APRsystem.Controllers
             var selfAssessmentStatusId = await GetStatusIdAsync("SelfAssessment");     // 11
             var supervisorReviewStatusId = await GetStatusIdAsync("SupervisorReview"); // 12
             var supervisorAssessmentStatusId = await GetStatusIdAsync("SupervisorAssessment"); // 18
+            var employeeCommentStatusId = await GetStatusIdAsync("EmployeeComment");   // between 18 and SupervisorRank
+            var supervisorRankStatusId = await GetStatusIdAsync("SupervisorRank");     // between EmployeeComment and HR
 
             bool canEditSelf = appraisal.StatusId == selfAssessmentStatusId && isEmployee;
             bool canEditSupervisor =
     appraisal.StatusId == supervisorAssessmentStatusId && isSupervisor;
             bool canView = appraisal.StatusId == supervisorReviewStatusId && isSupervisor; // read-only: approve/revert decision
+            bool canEditEmployeeComment = appraisal.StatusId == employeeCommentStatusId && isEmployee;
+            bool canEditSupervisorRank = appraisal.StatusId == supervisorRankStatusId && isSupervisor;
 
-            if (!canEditSelf && !canEditSupervisor && !canView)
+            if (!canEditSelf && !canEditSupervisor && !canView && !canEditEmployeeComment && !canEditSupervisorRank)
                 return Forbid();
 
             var vm = new AppraisalScoreViewModel
@@ -688,8 +780,17 @@ namespace APRsystem.Controllers
                 GeneralComment = isEmployee ? appraisal.SelfGeneralComment : appraisal.SupervisorGeneralComment,
                 SpecificComment = isEmployee ? appraisal.SelfSpecificComment : appraisal.SupervisorSpecificComment,
 
+                EmployeeFinalComment = appraisal.EmployeeFinalComment,
+
+                SupervisorFinalRank = appraisal.SupervisorFinalRank,
+                SupervisorRankComment = appraisal.SupervisorRankComment,
+
                 SupervisorId = appraisal.SupervisorId,
-                EditableField = canEditSelf ? "Self" : canEditSupervisor ? "Supervisor" : "None"
+                EditableField = canEditSelf ? "Self"
+                    : canEditSupervisor ? "Supervisor"
+                    : canEditEmployeeComment ? "EmployeeComment"
+                    : canEditSupervisorRank ? "SupervisorRank"
+                    : "None"
             };
 
             return View(vm);
@@ -786,7 +887,9 @@ namespace APRsystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> HRReview(int id, string? hrRemarks)
         {
-            var appraisal = await _context.Appraisals.FindAsync(id);
+            var appraisal = await _context.Appraisals
+                .Include(a => a.Employee)
+                .FirstOrDefaultAsync(a => a.Id == id);
             if (appraisal == null) return NotFound();
 
             if (!User.IsInRole("HR"))
@@ -810,6 +913,17 @@ namespace APRsystem.Controllers
             await LogHistoryAsync(appraisal.Id, "HR remarks added", "HR",
                 wf.NextStateId, anticipatedAfterHRReview);
 
+            // This was missing — every other transition notifies whoever acts next
+            // (AllowSelfAssessment -> employee, self-submit -> supervisor, supervisor-submit -> HR),
+            // but the final reviewer was never told their turn had come up.
+            if (appraisal.ReviewerId.HasValue)
+            {
+                NotifyEmployee(
+                    appraisal.ReviewerId.Value,
+                    $"{appraisal.Employee?.FullName ?? "An employee"}'s appraisal has been reviewed by HR and is ready for your final approval.",
+                    Url.Action("Details", "Appraisals", new { id = appraisal.Id }));
+            }
+
             await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Details), new { id = appraisal.Id });
@@ -822,6 +936,7 @@ namespace APRsystem.Controllers
         {
             var appraisal = await _context.Appraisals
                 .Include(a => a.AppraisalKPIs)
+                .Include(a => a.Employee)
                 .FirstOrDefaultAsync(a => a.Id == model.AppraisalId);
 
             if (appraisal == null) return NotFound();
@@ -836,6 +951,8 @@ namespace APRsystem.Controllers
             var selfAssessmentStatusId = await GetStatusIdAsync("SelfAssessment");     // 11
             var supervisorAssessmentStatusId =
     await GetStatusIdAsync("SupervisorAssessment"); ; // 18
+            var employeeCommentStatusId = await GetStatusIdAsync("EmployeeComment");
+            var supervisorRankStatusId = await GetStatusIdAsync("SupervisorRank");
 
             Workflow wf;
             try
@@ -850,23 +967,29 @@ namespace APRsystem.Controllers
 
                         kpi.SelfRating = posted.SelfRating;
                         kpi.SelfScore = kpi.Weight * kpi.SelfRating;
+                        kpi.SelfComment = posted.SelfComment;
                     }
 
-                    appraisal.SelfGeneralComment = model.GeneralComment;
-                    appraisal.SelfSpecificComment = model.SpecificComment;
+                    appraisal.SelfGeneralComment = model.SelfGeneralComment;
+                    appraisal.SelfSpecificComment = model.SelfSpecificComment;
 
                     wf = await _workflow.GetTransitionAsync(WorkflowEntity, appraisal.StatusId, "Submit for Supervisor Review");
-                    _workflow.EnsureCommentProvided(wf, model.GeneralComment, model.SpecificComment);
+                    _workflow.EnsureCommentProvided(wf, model.SelfGeneralComment, model.SelfSpecificComment);
 
                     appraisal.StatusId = wf.NextStateId;
 
                     var anticipatedAfterSelfSubmit = await _workflow.GetSoleNextStateAsync(WorkflowEntity, wf.NextStateId);
                     await LogHistoryAsync(appraisal.Id, "Self-assessment submitted by employee", "Employee",
-                        wf.NextStateId, anticipatedAfterSelfSubmit);
+    wf.NextStateId, anticipatedAfterSelfSubmit);
+
+                    NotifyEmployee(
+                        appraisal.SupervisorId,
+                        $"{currentEmployee?.FullName ?? "An employee"} has completed their self-assessment and it's ready for your review.",
+                        Url.Action("Score", "Appraisals", new { id = appraisal.Id }));
                 }
                 else if (appraisal.StatusId == supervisorAssessmentStatusId && isSupervisor)
                 {
-                    // Supervisor rating and submitting to HR (18 -> 13). Only Rating/Score (official) are touched —
+                    // Supervisor rating and submitting (18 -> EmployeeComment). Only Rating/Score (official) are touched —
                     // the employee's SelfRating/SelfScore are left exactly as they submitted them.
                     foreach (var posted in model.GeneralKPIs.Concat(model.SpecificKPIs))
                     {
@@ -877,13 +1000,13 @@ namespace APRsystem.Controllers
                         kpi.Score = kpi.Weight * kpi.Rating;
                     }
 
-                    appraisal.SupervisorGeneralComment = model.GeneralComment;
-                    appraisal.SupervisorSpecificComment = model.SpecificComment;
+                    appraisal.SupervisorGeneralComment = model.SupervisorGeneralComment;
+                    appraisal.SupervisorSpecificComment = model.SupervisorSpecificComment;
                     appraisal.RecommendationText = model.RecommendationText;
                     appraisal.RecommendedRank = model.RecommendedRank;
 
                     // Totals/percentage/rank are calculated from the OFFICIAL (supervisor) Rating/Score only —
-                    // this is what HR and the final reviewer act on.
+                    // this is what the employee, HR, and the final reviewer act on.
                     var generalKpis = appraisal.AppraisalKPIs.Where(k => k.Section == KPISection.General).ToList();
                     var specificKpis = appraisal.AppraisalKPIs.Where(k => k.Section == KPISection.Specific).ToList();
 
@@ -909,14 +1032,66 @@ namespace APRsystem.Controllers
                         _ => "Needs Improvement"
                     };
 
-                    wf = await _workflow.GetTransitionAsync(WorkflowEntity, appraisal.StatusId, "Submit to HR");
-                    _workflow.EnsureCommentProvided(wf, model.GeneralComment, model.SpecificComment);
+                    // NOTE: action name changed from "Submit to HR" to "Submit for Employee Comment" —
+                    // this now hands off to the employee first instead of going straight to HR.
+                    // See the Workflows-table update in the SQL notes for the matching DB change.
+                    wf = await _workflow.GetTransitionAsync(WorkflowEntity, appraisal.StatusId, "Submit for Employee Comment");
+                    _workflow.EnsureCommentProvided(wf, model.SupervisorGeneralComment, model.SupervisorSpecificComment);
 
                     appraisal.StatusId = wf.NextStateId;
 
                     var anticipatedAfterSupervisorSubmit = await _workflow.GetSoleNextStateAsync(WorkflowEntity, wf.NextStateId);
-                    await LogHistoryAsync(appraisal.Id, "KPIs rated and submitted to HR by supervisor", "Supervisor",
+                    await LogHistoryAsync(appraisal.Id, "KPIs rated by supervisor; awaiting employee comment", "Supervisor",
                         wf.NextStateId, anticipatedAfterSupervisorSubmit);
+
+                    NotifyEmployee(
+                        appraisal.EmployeeId,
+                        "Your supervisor has completed your rating. Please review it and add your comment.",
+                        Url.Action("Score", "Appraisals", new { id = appraisal.Id }));
+                }
+                else if (appraisal.StatusId == employeeCommentStatusId && isEmployee)
+                {
+                    // Employee has reviewed the supervisor's rating and is adding their own
+                    // closing comment. This now hands off to the supervisor's Final Rank stage,
+                    // not straight to HR. No ratings change here.
+                    appraisal.EmployeeFinalComment = model.EmployeeFinalComment;
+
+                    wf = await _workflow.GetTransitionAsync(WorkflowEntity, appraisal.StatusId, "Submit Employee Comment");
+                    // Comment here is optional (employee is acknowledging, not required to write anything),
+                    // so no EnsureCommentProvided call — flip this on if you want it mandatory.
+
+                    appraisal.StatusId = wf.NextStateId;
+
+                    var anticipatedAfterEmployeeComment = await _workflow.GetSoleNextStateAsync(WorkflowEntity, wf.NextStateId);
+                    await LogHistoryAsync(appraisal.Id, "Employee reviewed supervisor rating and added a comment", "Employee",
+                        wf.NextStateId, anticipatedAfterEmployeeComment);
+
+                    NotifyEmployee(
+                        appraisal.SupervisorId,
+                        $"{appraisal.Employee?.FullName ?? "An employee"} has added their comment. Please give your final rank.",
+                        Url.Action("Score", "Appraisals", new { id = appraisal.Id }));
+                }
+                else if (appraisal.StatusId == supervisorRankStatusId && isSupervisor)
+                {
+                    // Supervisor gives their final rank + comment, after seeing the employee's
+                    // comment. Separate from RecommendedRank/RecommendationText above. Now
+                    // visible read-only to the employee once the appraisal is fully closed out.
+                    appraisal.SupervisorFinalRank = model.SupervisorFinalRank;
+                    appraisal.SupervisorRankComment = model.SupervisorRankComment;
+
+                    wf = await _workflow.GetTransitionAsync(WorkflowEntity, appraisal.StatusId, "Submit Final Rank");
+                    _workflow.EnsureCommentProvided(wf, model.SupervisorRankComment);
+
+                    appraisal.StatusId = wf.NextStateId;
+
+                    var anticipatedAfterSupervisorRank = await _workflow.GetSoleNextStateAsync(WorkflowEntity, wf.NextStateId);
+                    await LogHistoryAsync(appraisal.Id, "Supervisor gave final rank", "Supervisor",
+                        wf.NextStateId, anticipatedAfterSupervisorRank);
+
+                    await NotifyRoleAsync(
+                        "HR",
+                        $"{appraisal.Employee?.FullName ?? "An employee"}'s appraisal has been submitted for HR review.",
+                        Url.Action("Details", "Appraisals", new { id = appraisal.Id }));
                 }
                 else
                 {
@@ -927,9 +1102,119 @@ namespace APRsystem.Controllers
             {
                 return BadRequest(ex.Message);
             }
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Details), new { id = appraisal.Id });
+        }
+        // POST: Appraisals/SaveScoreDraft
+        // Lets the employee (self-assessment or final comment) or supervisor (scoring) save
+        // whatever they've filled in so far WITHOUT submitting: no workflow transition, no
+        // mandatory-comment check, no history entry. The appraisal stays on the same status,
+        // so they can come back later via Score(GET) and pick up exactly where they left off —
+        // the same fields that Score(POST) writes are updated here, just without moving the
+        // workflow forward.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveScoreDraft(AppraisalScoreViewModel model)
+        {
+            var appraisal = await _context.Appraisals
+                .Include(a => a.AppraisalKPIs)
+                .FirstOrDefaultAsync(a => a.Id == model.AppraisalId);
+
+            if (appraisal == null) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var currentEmployee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            bool isEmployee = currentEmployee?.Id == appraisal.EmployeeId;
+            bool isSupervisor = currentEmployee?.Id == appraisal.SupervisorId;
+
+            var selfAssessmentStatusId = await GetStatusIdAsync("SelfAssessment");
+            var supervisorAssessmentStatusId = await GetStatusIdAsync("SupervisorAssessment");
+            var employeeCommentStatusId = await GetStatusIdAsync("EmployeeComment");
+            var supervisorRankStatusId = await GetStatusIdAsync("SupervisorRank");
+
+            if (appraisal.StatusId == selfAssessmentStatusId && isEmployee)
+            {
+                foreach (var posted in model.GeneralKPIs.Concat(model.SpecificKPIs))
+                {
+                    var kpi = appraisal.AppraisalKPIs.FirstOrDefault(k => k.Id == posted.Id);
+                    if (kpi == null) continue;
+
+                    kpi.SelfRating = posted.SelfRating;
+                    kpi.SelfScore = kpi.Weight * kpi.SelfRating;
+                }
+
+                appraisal.SelfGeneralComment = model.GeneralComment;
+                appraisal.SelfSpecificComment = model.SpecificComment;
+            }
+            else if (appraisal.StatusId == supervisorAssessmentStatusId && isSupervisor)
+            {
+                foreach (var posted in model.GeneralKPIs.Concat(model.SpecificKPIs))
+                {
+                    var kpi = appraisal.AppraisalKPIs.FirstOrDefault(k => k.Id == posted.Id);
+                    if (kpi == null) continue;
+
+                    kpi.Rating = posted.Rating;
+                    kpi.Score = kpi.Weight * kpi.Rating;
+                }
+
+                appraisal.SupervisorGeneralComment = model.GeneralComment;
+                appraisal.SupervisorSpecificComment = model.SpecificComment;
+                appraisal.RecommendationText = model.RecommendationText;
+                appraisal.RecommendedRank = model.RecommendedRank;
+            }
+            else if (appraisal.StatusId == employeeCommentStatusId && isEmployee)
+            {
+                appraisal.EmployeeFinalComment = model.EmployeeFinalComment;
+            }
+            else if (appraisal.StatusId == supervisorRankStatusId && isSupervisor)
+            {
+                appraisal.SupervisorFinalRank = model.SupervisorFinalRank;
+                appraisal.SupervisorRankComment = model.SupervisorRankComment;
+            }
+            else
+            {
+                return Forbid();
+            }
 
             await _context.SaveChangesAsync();
 
+            TempData["Success"] = "Progress saved — you can come back and finish this later.";
+            return RedirectToAction(nameof(Score), new { id = appraisal.Id });
+        }
+
+        // POST: Appraisals/SaveReviewDraft
+        // Same idea as SaveScoreDraft, for the final reviewer's stage: saves the reviewer's
+        // remarks/rank/action-required without approving or rejecting, so nothing about the
+        // workflow status changes. The appraisal stays at the final-review stage and the
+        // reviewer can reopen the Approve/Reject modal later to find their draft still there.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveReviewDraft(int id, string? reviewerComments, string? finalRank, string? actionRequired)
+        {
+            var appraisal = await _context.Appraisals.FindAsync(id);
+            if (appraisal == null) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var currentEmployee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            if (appraisal.ReviewerId != currentEmployee?.Id)
+                return Forbid();
+
+            var hrReviewedStatusId = await GetStatusIdAsync("HRReviewed");
+            if (appraisal.StatusId != hrReviewedStatusId)
+                return BadRequest("This appraisal isn't currently at the final review stage.");
+
+            appraisal.ReviewerComments = reviewerComments;
+            appraisal.FinalRank = finalRank;
+            appraisal.ActionRequired = actionRequired;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Draft saved — you can come back and finish the review later.";
             return RedirectToAction(nameof(Details), new { id = appraisal.Id });
         }
 

@@ -4,14 +4,15 @@
    =================================================================== */
 
 #page-content {
-    animation: page-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: page-enter 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes page-enter {
     from {
         opacity: 0;
-        transform: translateY(14px);
+        transform: translateY(6px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -20,7 +21,7 @@
 
 /* Applied by JS right before swapping content, to fade the old page out */
 #page-content.is-leaving {
-    animation: page-leave 0.25s ease forwards;
+    animation: page-leave 0.18s ease forwards;
 }
 
 @keyframes page-leave {
@@ -28,9 +29,10 @@
         opacity: 1;
         transform: translateY(0);
     }
+
     to {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: translateY(-6px);
     }
 }
 
@@ -47,9 +49,9 @@
     opacity: 0;
 }
 
-#page-transition-bar.is-active {
-    opacity: 1;
-}
+    #page-transition-bar.is-active {
+        opacity: 1;
+    }
 
 @media (prefers-reduced-motion: reduce) {
     #page-content,

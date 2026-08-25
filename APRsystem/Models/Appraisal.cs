@@ -25,7 +25,7 @@ namespace APRsystem.Models
         [Column(TypeName = "decimal(6,2)")]
         public decimal GeneralMaxScore { get; set; }
 
-        
+
 
         // Posting-Specific KPI section
         [Column(TypeName = "decimal(6,2)")]
@@ -39,6 +39,16 @@ namespace APRsystem.Models
 
         public string? SupervisorGeneralComment { get; set; }
         public string? SupervisorSpecificComment { get; set; }
+
+        // Employee's closing comment, added after reviewing the supervisor's rating
+        // (Employee Comment stage, between SupervisorAssessment and HR).
+        public string? EmployeeFinalComment { get; set; }
+
+        // Supervisor's final rank + comment, given after the employee's comment
+        // (SupervisorRank stage). Separate from RecommendedRank/RecommendationText,
+        // which are filled in earlier alongside KPI scoring. Never shown to the employee.
+        public string? SupervisorFinalRank { get; set; }   // OS, AE, ME, BE, NI
+        public string? SupervisorRankComment { get; set; }
 
         public string? HRRemarks { get; set; }
 
@@ -64,14 +74,14 @@ namespace APRsystem.Models
         public int? ReviewerId { get; set; }
         public Employee? Reviewer { get; set; }
 
-       
+
         public DateTime? ReviewedOn { get; set; }
         // Section 6: Performance Appraisal Ranking (Supervisor only, hidden from employee)
         public string? RecommendationText { get; set; }
         public string? RecommendedRank { get; set; }   // OS, AE, ME, BE, NI
 
         // Section 7: Final Ranking (HR + Final Reviewer)
-     
+
         public string? FinalRank { get; set; }         // OS, AE, ME, BE, NI
         public string? ActionRequired { get; set; }
         public bool SelfAssessmentEnabled { get; set; } = false;

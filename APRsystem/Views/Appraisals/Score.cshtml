@@ -15,7 +15,35 @@
 
     bool editingSelf = Model.EditableField == "Self";
     bool editingSupervisor = Model.EditableField == "Supervisor";
+    // Employee reviews the supervisor's rating/comments and adds their own closing
+    // comment before the appraisal moves on to HR.
+    bool editingEmployeeComment = Model.EditableField == "EmployeeComment";
+    // Supervisor gives a final rank + comment after seeing the employee's comment.
+    // Separate from the RecommendedRank/RecommendationText given earlier alongside KPI scoring.
+    bool editingSupervisorRank = Model.EditableField == "SupervisorRank";
     bool readOnly = Model.EditableField == "None";
+
+    // True once the supervisor has actually put something down (rating, recommendation, etc.).
+    // Used to distinguish stage 3a (read-only "approve or send back" review, before the
+    // supervisor has scored anything — everything on their side is still empty) from stage 3b
+    // onward (supervisor is editing, or has already submitted scores). Showing an empty,
+    // uneditable star widget / comment box during 3a is confusing, so we gate on this instead
+    // of just "!isEmployee".
+    bool supervisorHasReviewed = Model.GeneralKPIs.Any(k => k.Rating > 0)
+        || Model.SpecificKPIs.Any(k => k.Rating > 0)
+        || !string.IsNullOrWhiteSpace(Model.RecommendedRank);
+
+    // Whether the Supervisor Rating column / Appraiser's Comment box should render at all
+    // for the current viewer. Previously this was hidden from the employee entirely; the
+    // employee now needs to see it from the Employee Comment stage onward (once the
+    // supervisor has actually rated), so it's no longer gated on !isEmployee — it just
+    // tracks whether the supervisor's side is currently being edited or already has content.
+    bool showSupervisorSide = editingSupervisor || supervisorHasReviewed;
+
+    // Whether the supervisor has produced a Recommendation/Rank, and a Final Rank,
+    // used to gate read-only visibility of those blocks for the employee.
+    bool supervisorHasRecommended = !string.IsNullOrWhiteSpace(Model.RecommendedRank);
+    bool supervisorHasFinalRanked = !string.IsNullOrWhiteSpace(Model.SupervisorFinalRank);
 
     // Renders a 4-star rating widget.
     // - id/name: standard MVC id/name for the underlying int property (from Html.IdFor / Html.NameFor)
@@ -83,7 +111,7 @@
                             <th>Title</th>
                             <th>Weight</th>
                             <th width="140">Self Rating (0-4)</th>
-                            @if (!isEmployee)
+                            @if (showSupervisorSide)
                             {
                                 <th width="140">Supervisor Rating (0-4)</th>
                             }
@@ -116,7 +144,7 @@
                                         Model.GeneralKPIs[i].SelfRating,
                                         editingSelf))
                                 </td>
-                                @if (!isEmployee)
+                                @if (showSupervisorSide)
                                 {
                                     <td>
                                         @Html.Raw(StarRatingHtml(
@@ -144,19 +172,19 @@
 
                     @if (editingSelf)
                     {
-                        <label asp-for="GeneralComment" class="form-label">Your Comment (General)</label>
-                        <textarea asp-for="GeneralComment" class="form-control" rows="3"></textarea>
+                        <label asp-for="SelfGeneralComment" class="form-label">Your Comment (General)</label>
+                        <textarea asp-for="SelfGeneralComment" class="form-control" rows="3"></textarea>
                     }
-                    else if (!isEmployee)
+                    else if (showSupervisorSide)
                     {
-                        <label asp-for="GeneralComment" class="form-label">Appraiser's Comment (General)</label>
-                        @if (readOnly)
+                        <label asp-for="SupervisorGeneralComment" class="form-label">Appraiser's Comment <span class="text-muted">(optional)</span></label>
+                        @if (readOnly || editingEmployeeComment)
                         {
-                            <textarea asp-for="GeneralComment" class="form-control" rows="3" readonly></textarea>
+                            <textarea asp-for="SupervisorGeneralComment" class="form-control" rows="3" readonly></textarea>
                         }
                         else
                         {
-                            <textarea asp-for="GeneralComment" class="form-control" rows="3"></textarea>
+                            <textarea asp-for="SupervisorGeneralComment" class="form-control" rows="3"></textarea>
                         }
                     }
                 </div>
@@ -180,7 +208,7 @@
                             <th>Title</th>
                             <th>Weight</th>
                             <th width="140">Self Rating (0-4)</th>
-                            @if (!isEmployee)
+                            @if (showSupervisorSide)
                             {
                                 <th width="140">Supervisor Rating (0-4)</th>
                             }
@@ -212,7 +240,7 @@
                                         Model.SpecificKPIs[i].SelfRating,
                                         editingSelf))
                                 </td>
-                                @if (!isEmployee)
+                                @if (showSupervisorSide)
                                 {
                                     <td>
                                         @Html.Raw(StarRatingHtml(
@@ -223,71 +251,146 @@
                                     </td>
                                 }
                             </tr>
+                            <tr>
+                                <td colspan="@(showSupervisorSide ? 4 : 3)">
+                                    @if (editingSelf)
+                                    {
+                                        <textarea asp-for="SpecificKPIs[i].SelfComment"
+                                                  class="form-control form-control-sm"
+                                                  rows="2"
+                                                  placeholder="Comment on this KPI..."></textarea>
+                                    }
+                                    else
+                                    {
+                                        <input type="hidden" asp-for="SpecificKPIs[i].SelfComment" />
+                                        <label class="form-label small text-muted mb-1">Employee's Comment</label>
+                                        <div class="form-control bg-light" style="min-height: 50px; white-space: pre-wrap;">
+                                            @(string.IsNullOrWhiteSpace(Model.SpecificKPIs[i].SelfComment) ? "No comment provided." : Model.SpecificKPIs[i].SelfComment)
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
                         }
                     </tbody>
                 </table>
 
                 <div class="mb-3">
-                    @if (!editingSelf)
+                    @if (editingSupervisor)
                     {
-                        <label class="form-label">Employee's Comment (Posting-Specific)</label>
-                        <div class="form-control bg-light mb-3" style="min-height: 80px; white-space: pre-wrap;">
-                            @(string.IsNullOrWhiteSpace(Model.SelfSpecificComment) ? "No comment provided." : Model.SelfSpecificComment)
+                        <label asp-for="SupervisorSpecificComment" class="form-label">Appraiser's Comment <span class="text-muted">(optional)</span></label>
+                        <textarea asp-for="SupervisorSpecificComment" class="form-control" rows="3"></textarea>
+                    }
+                    else if (showSupervisorSide)
+                    {
+                        <label class="form-label">Supervisor's Comment (Posting-Specific)</label>
+                        <div class="form-control bg-light" style="min-height: 80px; white-space: pre-wrap;">
+                            @(string.IsNullOrWhiteSpace(Model.SupervisorSpecificComment) ? "No comment provided." : Model.SupervisorSpecificComment)
                         </div>
-                    }
-
-                    @if (editingSelf)
-                    {
-                        <label asp-for="SpecificComment" class="form-label">Your Comment (Posting-Specific)</label>
-                        <textarea asp-for="SpecificComment" class="form-control" rows="3"></textarea>
-                    }
-                    else if (!isEmployee)
-                    {
-                        <label asp-for="SpecificComment" class="form-label">Appraiser's Comment (Posting-Specific)</label>
-                        @if (readOnly)
-                        {
-                            <textarea asp-for="SpecificComment" class="form-control" rows="3" readonly></textarea>
-                        }
-                        else
-                        {
-                            <textarea asp-for="SpecificComment" class="form-control" rows="3"></textarea>
-                        }
                     }
                 </div>
 
             </div>
         </div>
 
-        @* SECTION 6: Performance Appraisal Ranking — Supervisor only, not shared with employee.
-           Only shown while the supervisor is actively rating, OR read-only afterward once a
-           recommendation actually exists (so it doesn't appear as an empty/disabled block
-           during the earlier SupervisorReview approve/revert stage). *@
-        @if (isSupervisor && (editingSupervisor || (readOnly && !string.IsNullOrWhiteSpace(Model.RecommendedRank))))
+        @* Employee Comment stage: employee has now seen the supervisor's ratings and
+           comments above (via showSupervisorSide) and adds their own closing comment
+           before the appraisal moves on to HR. *@
+        @if (isEmployee && editingEmployeeComment)
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="mb-0 fw-semibold text-primary">
+                        <i class="bi bi-chat-left-text me-2"></i>
+                        Your Comment on the Supervisor's Rating
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <label asp-for="EmployeeFinalComment" class="form-label">Comment</label>
+                    <textarea asp-for="EmployeeFinalComment" class="form-control" rows="3"
+                              placeholder="Add any comments after reviewing your supervisor's rating"></textarea>
+                </div>
+            </div>
+        }
+
+        @* Performance Appraisal Ranking. Supervisor edits it during their scoring stage.
+           Employee can now see it read-only once it exists, once the appraisal has moved
+           past their own editing stages (EmployeeComment onward). Previously hard-gated to
+           isSupervisor only with a "Not shared with employee" label — that's no longer true. *@
+        @if (editingSupervisor || ((isSupervisor || isEmployee) && supervisorHasRecommended && (readOnly || editingEmployeeComment || editingSupervisorRank)))
         {
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-dark">
                     <h5 class="mb-0">Performance Appraisal Ranking</h5>
-                    <small class="text-muted">Not shared with employee</small>
                 </div>
                 <div class="card-body">
 
                     <div class="mb-3">
-                        <label asp-for="RecommendationText" class="form-label">Appraiser's Recommendation</label>
+                        <label asp-for="RecommendationText" class="form-label">Supervisor Remarks <span class="text-danger">*</span></label>
                         <textarea asp-for="RecommendationText" class="form-control" rows="3"
                                   placeholder="Clarify reason if recommendation differs from calculated score"
-                                  readonly="@(!editingSupervisor)"></textarea>
+                                  readonly="@(!editingSupervisor)"
+                                  required="@(editingSupervisor)"></textarea>
+                        <span asp-validation-for="RecommendationText" class="text-danger small"></span>
+                    </div>
+
+                </div>
+            </div>
+        }
+
+        @* Supervisor's Final Rank stage — comes after the employee's comment. Separate from the
+           Recommended Rank above (which is filled in earlier, alongside KPI scoring). Rank +
+           comment. Now visible read-only to the employee once the appraisal is fully closed out. *@
+        @if (editingSupervisorRank || ((isSupervisor || isEmployee) && supervisorHasFinalRanked && readOnly))
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0">Supervisor's Final Rank</h5>
+                </div>
+                <div class="card-body">
+
+                    @if (isSupervisor)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Employee's Comment</label>
+                            <div class="form-control bg-light" style="min-height: 80px; white-space: pre-wrap;">
+                                @(string.IsNullOrWhiteSpace(Model.EmployeeFinalComment) ? "No comment provided." : Model.EmployeeFinalComment)
+                            </div>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label asp-for="SupervisorFinalRank" class="form-label">Final Rank</label>
+                        @if (editingSupervisorRank)
+                        {
+                            <select asp-for="SupervisorFinalRank" class="form-select">
+                                <option value="">-- Select --</option>
+                                <option value="OS">Outstanding (OS)</option>
+                                <option value="AE">Above Expectations (AE)</option>
+                                <option value="ME">Meets Expectations (ME)</option>
+                                <option value="BE">Below Expectations (BE)</option>
+                                <option value="NI">Needs Improvement (NI)</option>
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="hidden" asp-for="SupervisorFinalRank" />
+                            <div class="form-control bg-light">@Model.SupervisorFinalRank</div>
+                        }
                     </div>
 
                     <div class="mb-3">
-                        <label asp-for="RecommendedRank" class="form-label">Recommended Rank</label>
-                        <select asp-for="RecommendedRank" class="form-select" disabled="@(!editingSupervisor)">
-                            <option value="">-- Select --</option>
-                            <option value="OS">Outstanding (OS) — 90% and above</option>
-                            <option value="AE">Above Expectations (AE) — 75% - 89%</option>
-                            <option value="ME">Meets Expectations (ME) — 50% - 74%</option>
-                            <option value="BE">Below Expectations (BE) — 30% - 49%</option>
-                            <option value="NI">Needs Improvement (NI) — Below 30%</option>
-                        </select>
+                        <label asp-for="SupervisorRankComment" class="form-label">Comment</label>
+                        @if (editingSupervisorRank)
+                        {
+                            <textarea asp-for="SupervisorRankComment" class="form-control" rows="3"></textarea>
+                        }
+                        else
+                        {
+                            <input type="hidden" asp-for="SupervisorRankComment" />
+                            <div class="form-control bg-light" style="min-height: 80px; white-space: pre-wrap;">
+                                @(string.IsNullOrWhiteSpace(Model.SupervisorRankComment) ? "No comment provided." : Model.SupervisorRankComment)
+                            </div>
+                        }
                     </div>
 
                 </div>
@@ -296,9 +399,20 @@
 
         @if (!readOnly)
         {
-            <button type="submit" class="btn btn-primary px-4">
-                @(editingSelf ? "Submit Self-Assessment" : "Submit Rating to HR")
-            </button>
+            <div class="d-flex gap-2">
+                @* Saves whatever's filled in so far, without submitting — no workflow transition,
+                   no required-field checks. Comes back to this same page next time. *@
+                <button type="submit" asp-action="SaveScoreDraft" formnovalidate class="btn btn-outline-secondary px-4">
+                    <i class="bi bi-save me-1"></i>Save Progress
+                </button>
+                <button type="submit" class="btn btn-primary px-4">
+                    @(editingSelf ? "Submit Self-Assessment"
+                        : editingSupervisor ? "Submit"
+                        : editingEmployeeComment ? "Submit Comment"
+                        : editingSupervisorRank ? "Submit Final Rank"
+                        : "Submit Rating to HR")
+                </button>
+            </div>
         }
 
     </form>
@@ -345,29 +459,29 @@
         line-height: 1;
     }
 
-    .star-rating .star-icon {
-        color: #d9d9d9;
-        transition: color .1s ease-in-out, transform .1s ease-in-out;
-    }
+        .star-rating .star-icon {
+            color: #d9d9d9;
+            transition: color .1s ease-in-out, transform .1s ease-in-out;
+        }
 
-    .star-rating .star-icon.filled {
-        color: #f5b301;
-    }
+            .star-rating .star-icon.filled {
+                color: #f5b301;
+            }
 
-    /* Only clickable/hoverable when NOT marked readonly */
-    .star-rating:not(.readonly) .star-icon {
-        cursor: pointer;
-    }
+        /* Only clickable/hoverable when NOT marked readonly */
+        .star-rating:not(.readonly) .star-icon {
+            cursor: pointer;
+        }
 
-    .star-rating:not(.readonly) .star-icon:hover {
-        transform: scale(1.15);
-    }
+            .star-rating:not(.readonly) .star-icon:hover {
+                transform: scale(1.15);
+            }
 </style>
 
 <script>
-    (function () {
+    (function() {
         function initStarRatings(root) {
-            (root || document).querySelectorAll('.star-rating:not(.readonly)').forEach(function (widget) {
+            (root || document).querySelectorAll('.star-rating:not(.readonly)').forEach(function(widget) {
                 // Avoid double-binding if this init ever runs more than once
                 if (widget.dataset.starBound === '1') return;
                 widget.dataset.starBound = '1';
@@ -378,7 +492,7 @@
                 var stars = widget.querySelectorAll('.star-icon');
 
                 function render(val) {
-                    stars.forEach(function (star) {
+                    stars.forEach(function(star) {
                         var v = parseInt(star.getAttribute('data-value'), 10);
                         var isFilled = v <= val;
                         star.classList.toggle('bi-star-fill', isFilled);
@@ -388,12 +502,12 @@
                     widget.setAttribute('title', val + ' of 4');
                 }
 
-                stars.forEach(function (star) {
-                    star.addEventListener('mouseenter', function () {
+                stars.forEach(function(star) {
+                    star.addEventListener('mouseenter', function() {
                         render(parseInt(star.getAttribute('data-value'), 10));
                     });
 
-                    star.addEventListener('click', function () {
+                    star.addEventListener('click', function() {
                         var clicked = parseInt(star.getAttribute('data-value'), 10);
                         var current = parseInt(input.value || '0', 10);
                         // Clicking the star that represents the current value clears the rating back to 0
@@ -403,7 +517,7 @@
                     });
                 });
 
-                widget.addEventListener('mouseleave', function () {
+                widget.addEventListener('mouseleave', function() {
                     render(parseInt(input.value || '0', 10));
                 });
             });
@@ -411,7 +525,7 @@
 
         // Init anything already on the page (normal full page load)
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function () { initStarRatings(); });
+            document.addEventListener('DOMContentLoaded', function() { initStarRatings(); });
         } else {
             initStarRatings();
         }
@@ -419,9 +533,9 @@
         // Auto-init anything added later — e.g. this view being swapped into the
         // page via AJAX/fetch, a tab panel, or any other dynamic injection.
         // This means nothing else in the app needs to call initStarRatings() manually.
-        var observer = new MutationObserver(function (mutations) {
-            mutations.forEach(function (mutation) {
-                mutation.addedNodes.forEach(function (node) {
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(node) {
                     if (node.nodeType !== 1) return; // only element nodes
                     if (node.matches && node.matches('.star-rating')) {
                         initStarRatings(node.parentNode);

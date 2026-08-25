@@ -17,6 +17,7 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddScoped<AppraisalPdfService>();
+builder.Services.AddScoped<AppraisalExcelService>();
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 {

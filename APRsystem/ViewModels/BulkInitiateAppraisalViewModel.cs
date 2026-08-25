@@ -20,11 +20,21 @@
         public List<BulkEmployeeRow> Employees { get; set; } = new();
     }
 
+    // NEW — replaces the old HasActiveAppraisal bool with a real three-state value
+    public enum BulkAppraisalStatus
+    {
+        Ready,
+        InProgress,
+        Completed
+    }
+
     public class BulkEmployeeRow
     {
         public int EmployeeId { get; set; }
         public int? AppraisalId { get; set; }
-        public bool HasActiveAppraisal { get; set; }
+
+        // REMOVED: HasActiveAppraisal — replaced by Status below
+        public BulkAppraisalStatus Status { get; set; }
 
         public string FullName { get; set; } = string.Empty;
 
